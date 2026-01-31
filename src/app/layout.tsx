@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
+import { CartProvider } from "@/context/CartContext"; // <--- 1. ADD THIS IMPORT
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,8 +26,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ToastProvider />
-          {children}
+          {/* 2. WRAP CONTENT IN CartProvider */}
+          <CartProvider>
+            <ToastProvider />
+            {children}
+          </CartProvider>
         </ThemeProvider>
       </body>
     </html>

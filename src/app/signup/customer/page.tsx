@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, User, Send, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
-
+import { StaticNavbar } from "@/components/StaticNavbar";
 
 export default function CustomerSignup() {
   const router = useRouter();
@@ -130,6 +130,7 @@ export default function CustomerSignup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <StaticNavbar/>
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
         <h2 className="text-2xl font-bold text-center mb-6">Customer Registration</h2>
 

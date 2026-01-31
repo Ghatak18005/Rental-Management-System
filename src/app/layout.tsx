@@ -27,8 +27,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {/* Ensure ToastProvider is inside ThemeProvider for themed toasts */}
-          <ToastProvider /> 
-          <DynamicNavbar />
+          <ToastProvider />
           {children}
         </ThemeProvider>
       </body>

@@ -13,6 +13,7 @@ import {
   TrendingUp,
   AlertCircle,
 } from 'lucide-react';
+import { StaticNavbar } from "@/components/StaticNavbar";
 
 export default function RentalSystemHome() {
   useEffect(() => {
@@ -20,8 +21,9 @@ export default function RentalSystemHome() {
   }, []);
 
   return (
+    
     <div className="min-h-screen bg-background text-foreground font-sans transition-colors duration-300">
-      
+      <StaticNavbar />
       {/* ================= BACKGROUND EFFECTS ================= */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px]"></div>

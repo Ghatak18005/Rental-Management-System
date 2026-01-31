@@ -11,7 +11,8 @@ import {
   Building2, 
   FileText, 
   Send, 
-  CheckCircle2 
+  CheckCircle2,
+  ShoppingBag // Added ShoppingBag icon for the customer link
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -294,12 +295,27 @@ export default function VendorSignup() {
             </div>
           )}
 
-          <p className="text-center text-sm text-muted-foreground mt-8 relative z-10">
-            Already registered?{" "}
-            <Link href="/login" className="text-primary hover:underline font-bold transition-colors">
-              Login here
-            </Link>
-          </p>
+          {/* Footer Area with Links */}
+          <div className="mt-8 space-y-3 relative z-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              Already registered?{" "}
+              <Link href="/login" className="text-primary hover:underline font-bold transition-colors">
+                Login here
+              </Link>
+            </p>
+
+            {/* Separator / Divider */}
+            <div className="w-12 h-px bg-border mx-auto"></div>
+
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+              <ShoppingBag className="h-3 w-3" />
+              Looking to rent items?{" "}
+              <Link href="/signup/customer" className="text-foreground hover:text-primary underline decoration-dotted underline-offset-4 font-semibold transition-colors">
+                Sign up as Customer
+              </Link>
+            </p>
+          </div>
+
         </div>
       </main>
     </div>

@@ -166,7 +166,7 @@ export default function LoginPage() {
             {/* main fills the remaining space and centers the card */}
             <main className="flex-1 flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-card border border-border rounded-2xl shadow-2xl p-8 relative overflow-hidden transition-all duration-300">
-                    
+
                     {/* Decorative Ambient Glow */}
                     <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -196,7 +196,7 @@ export default function LoginPage() {
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between px-1">
                                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Password</label>
-                                <Link href="/forgot-password" weights="medium" className="text-xs text-primary hover:underline">
+                                <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
                                     Forgot?
                                 </Link>
                             </div>

@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  Search, Heart, ShoppingCart, User, Trash2, Heart as HeartOutline,
-  ChevronLeft, Calendar, CreditCard, X, Loader2
+  ShoppingCart, Trash2, Calendar, CreditCard, X, Loader2, ArrowRight, Tag, ShieldCheck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -16,7 +15,6 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [order, setOrder] = useState<any>(null);
-  
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -24,7 +22,10 @@ export default function CartPage() {
   useEffect(() => {
     const fetchCart = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        router.push('/login');
+        return;
+      }
 
       const { data: orderData } = await supabase
         .from('rental_orders')
@@ -45,7 +46,7 @@ export default function CartPage() {
     };
 
     fetchCart();
-  }, [supabase]);
+  }, [supabase, router]);
 
   // Calculations
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -79,70 +80,101 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="min-h-screen bg-background flex items-center justify-center text-primary">
+        <Loader2 className="h-10 w-10 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-sans selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 selection:text-primary transition-colors duration-300">
       
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#121212] border-b border-gray-800 px-6 py-4">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-12">
-            <div className="font-bold text-lg tracking-wide cursor-pointer" onClick={() => router.push('/dashboard')}>RentFlow</div>
-          </div>
-          <div className="flex items-center space-x-6">
-            <div className="relative">
-              <ShoppingCart className="h-6 w-6 text-white" />
-              <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full">
-                {cartItems.length}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* ================= BACKGROUND EFFECTS ================= */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[10%] right-[5%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[10%] left-[5%] w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[120px]"></div>
+      </div>
 
       {/* Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-12">
-        <div className="text-sm text-gray-400 mb-8 flex items-center">
-          <span className="text-white font-semibold underline decoration-purple-500 underline-offset-4">Add to Cart</span> 
-          <span className="mx-3 text-gray-600">{'>'}</span> 
-          <span>Address</span> 
+      <div className="relative z-10 max-w-[1600px] mx-auto px-6 py-12">
+        
+        {/* Breadcrumb / Title */}
+        <div className="mb-8">
+           <h1 className="text-3xl font-bold tracking-tight mb-2">Shopping Cart</h1>
+           <div className="text-sm text-foreground/50 flex items-center gap-2">
+             <span className="text-primary font-semibold">Review Cart</span> 
+             <ArrowRight className="h-3 w-3" /> 
+             <span>Checkout</span>
+             <ArrowRight className="h-3 w-3" />
+             <span>Confirmation</span>
+           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-16">
+        <div className="flex flex-col lg:flex-row gap-8 xl:gap-16">
+          
+          {/* LEFT: CART ITEMS */}
           <div className="flex-[2]">
-            <h2 className="text-xl font-bold mb-8 flex items-center">
-              Order Summary
-              <span className="ml-auto text-sm font-normal text-gray-400">Rs {subtotal.toFixed(2)}</span>
-            </h2>
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+              <h2 className="text-lg font-bold">Items ({cartItems.length})</h2>
+              {cartItems.length > 0 && (
+                <button onClick={() => router.push('/dashboard')} className="text-sm text-primary hover:underline font-medium">
+                  Continue Shopping
+                </button>
+              )}
+            </div>
             
             {cartItems.length === 0 ? (
-              <div className="text-center py-20 bg-[#1E1E1E] rounded-xl border border-gray-800 text-gray-500">
-                Your cart is empty.
+              <div className="flex flex-col items-center justify-center py-20 bg-card rounded-3xl border border-border text-foreground/40 shadow-sm">
+                <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4">
+                  <ShoppingCart className="h-8 w-8 opacity-50"/>
+                </div>
+                <h3 className="text-lg font-bold text-foreground">Your cart is empty</h3>
+                <p className="text-sm mt-2">Looks like you haven't added any gear yet.</p>
+                <button onClick={() => router.push('/dashboard')} className="mt-6 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
+                  Browse Equipment
+                </button>
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex gap-6 pb-8 border-b border-gray-800">
-                    <div className="w-24 h-24 bg-[#1E1E1E] rounded-xl overflow-hidden border border-gray-800">
-                      <img src={item.image_url || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" />
+                  <div key={item.id} className="group bg-card p-4 rounded-2xl border border-border flex flex-col sm:flex-row gap-6 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+                    
+                    {/* Image */}
+                    <div className="w-full sm:w-32 h-32 bg-accent/30 rounded-xl overflow-hidden border border-border flex-shrink-0 relative">
+                      <img 
+                        src={item.image_url || 'https://via.placeholder.com/150'} 
+                        className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal" 
+                      />
                     </div>
-                    <div className="flex-1 flex flex-col justify-between">
+
+                    {/* Details */}
+                    <div className="flex-1 flex flex-col justify-between py-1">
                       <div>
-                        <h3 className="font-semibold text-lg text-gray-200">{item.product_name}</h3>
-                        <p className="text-sm font-mono text-gray-400 mt-1">Rs {item.price}</p>
-                        <p className="text-xs text-gray-500 mt-2 flex items-center">
-                          <Calendar className="w-3 h-3 mr-2" />
-                          {order ? `${new Date(order.pickup_date).toLocaleDateString()} - ${new Date(order.return_date).toLocaleDateString()}` : 'Dates not set'}
-                        </p>
+                        <div className="flex justify-between items-start">
+                           <h3 className="font-bold text-lg text-foreground">{item.product_name}</h3>
+                           <span className="font-black text-lg text-primary">₹{item.price}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mt-2 text-xs text-foreground/50 bg-accent/30 w-fit px-3 py-1.5 rounded-lg border border-border">
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          {order 
+                            ? `${new Date(order.pickup_date).toLocaleDateString()} - ${new Date(order.return_date).toLocaleDateString()}` 
+                            : 'Dates not selected'
+                          }
+                        </div>
                       </div>
-                      <button onClick={() => removeFromCart(item.id)} className="hover:text-red-400 flex items-center transition-colors text-xs text-gray-500 mt-2">
-                        <Trash2 className="w-3 h-3 mr-1.5" /> Remove
-                      </button>
+
+                      <div className="flex justify-between items-end mt-4">
+                        <div className="text-xs text-foreground/40 font-medium">
+                           Quantity: <span className="text-foreground">{item.quantity}</span>
+                        </div>
+                        <button 
+                          onClick={() => removeFromCart(item.id)} 
+                          className="flex items-center gap-1.5 text-xs font-bold text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -150,59 +182,136 @@ export default function CartPage() {
             )}
           </div>
 
-          <div className="flex-1">
-            <div className="bg-[#1E1E1E] p-8 rounded-2xl border border-gray-800 sticky top-28 shadow-xl">
-              <h3 className="font-semibold mb-6 text-gray-200">Rental Period</h3>
-              <div className="space-y-4 mb-10">
-                 <div className="bg-[#121212] px-4 py-3 rounded-lg border border-gray-700 text-sm text-gray-300">
-                    <span className="text-xs text-gray-500 block uppercase mb-1">Pickup</span>
-                    {order ? new Date(order.pickup_date).toLocaleString() : '-'}
-                 </div>
-                 <div className="bg-[#121212] px-4 py-3 rounded-lg border border-gray-700 text-sm text-gray-300">
-                    <span className="text-xs text-gray-500 block uppercase mb-1">Return</span>
-                    {order ? new Date(order.return_date).toLocaleString() : '-'}
-                 </div>
-              </div>
-
-              <div className="space-y-4 text-sm mb-8 border-b border-gray-700 pb-8">
-                <div className="flex justify-between font-bold text-xl text-white pt-2">
-                  <span>Total</span>
-                  <span>Rs {finalTotal.toFixed(2)}</span>
+          {/* RIGHT: ORDER SUMMARY */}
+          {cartItems.length > 0 && (
+            <div className="flex-1 max-w-md">
+              <div className="bg-card p-8 rounded-3xl border border-border sticky top-28 shadow-xl">
+                <h3 className="font-bold text-lg mb-6">Rental Summary</h3>
+                
+                <div className="space-y-4 mb-8">
+                   <div className="bg-accent/30 p-4 rounded-2xl border border-border flex items-start gap-3">
+                      <div className="mt-1 w-2 h-2 rounded-full bg-secondary"></div>
+                      <div>
+                        <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest block mb-1">Pickup</span>
+                        <div className="text-sm font-medium">
+                          {order ? new Date(order.pickup_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
+                        </div>
+                      </div>
+                   </div>
+                   
+                   <div className="bg-accent/30 p-4 rounded-2xl border border-border flex items-start gap-3">
+                      <div className="mt-1 w-2 h-2 rounded-full bg-primary"></div>
+                      <div>
+                        <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest block mb-1">Return</span>
+                        <div className="text-sm font-medium">
+                          {order ? new Date(order.return_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
+                        </div>
+                      </div>
+                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <button className="w-full bg-[#064e18] hover:bg-[#086320] text-white font-bold py-3.5 rounded-lg border border-green-800">
-                  Apply Coupon
-                </button>
-                <button 
-                  onClick={() => setIsCheckoutOpen(true)}
-                  disabled={cartItems.length === 0}
-                  className="w-full bg-[#121212] hover:bg-black border border-gray-600 text-white font-bold py-3.5 rounded-lg disabled:opacity-50"
-                >
-                  Checkout
-                </button>
-              </div>
+                <div className="space-y-3 mb-8">
+                   <div className="flex justify-between text-sm text-foreground/60">
+                     <span>Subtotal</span>
+                     <span>₹{subtotal.toFixed(2)}</span>
+                   </div>
+                   <div className="flex justify-between text-sm text-foreground/60">
+                     <span>Taxes & Fees</span>
+                     <span>Calculated at checkout</span>
+                   </div>
+                   <div className="h-px bg-border my-2"></div>
+                   <div className="flex justify-between items-center">
+                     <span className="font-bold text-lg">Total</span>
+                     <span className="font-black text-2xl text-primary">₹{finalTotal.toFixed(2)}</span>
+                   </div>
+                </div>
 
+                <div className="space-y-3">
+                  <button className="w-full bg-accent hover:bg-accent/80 text-foreground font-bold py-3.5 rounded-xl border border-border transition-all flex items-center justify-center gap-2 text-sm">
+                    <Tag className="w-4 h-4 text-foreground/50" /> Apply Coupon
+                  </button>
+                  <button 
+                    onClick={() => setIsCheckoutOpen(true)}
+                    className="w-full bg-primary hover:opacity-90 text-primary-foreground font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    Proceed to Checkout <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-foreground/40 font-medium uppercase tracking-wide">
+                   <ShieldCheck className="w-3 h-3" /> Secure Payment
+                </div>
+
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
+      {/* ================= CHECKOUT MODAL ================= */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-           <form onSubmit={handlePayment} className="bg-[#1E1E1E] w-full max-w-3xl rounded-xl border border-gray-800 p-8 relative">
-              <button type="button" onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400"><X /></button>
-              <h2 className="text-xl font-bold mb-6">Express Checkout</h2>
-              <div className="space-y-4">
-                 <input required type="text" placeholder="Card Number" className="w-full bg-[#121212] border border-gray-700 rounded-lg p-3 text-white" />
-                 <div className="flex justify-end">
-                    <button type="submit" className="bg-blue-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-800">
-                       {isProcessing ? 'Processing...' : 'Pay Now'}
-                    </button>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <form onSubmit={handlePayment} className="bg-card w-full max-w-lg rounded-3xl border border-border p-8 relative shadow-2xl animate-in zoom-in-95 duration-200">
+              
+              <button type="button" onClick={() => setIsCheckoutOpen(false)} className="absolute top-6 right-6 p-2 hover:bg-accent rounded-full text-foreground/50 hover:text-foreground transition-all">
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold mb-1">Express Checkout</h2>
+                <p className="text-sm text-foreground/50">Complete your payment to confirm rental.</p>
+              </div>
+
+              <div className="space-y-5">
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest ml-1">Card Information</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30" />
+                      <input 
+                        required 
+                        type="text" 
+                        placeholder="0000 0000 0000 0000" 
+                        className="w-full bg-accent/30 border border-border rounded-xl py-3.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-foreground/20 font-mono" 
+                      />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest ml-1">Expiry</label>
+                      <input 
+                        required 
+                        type="text" 
+                        placeholder="MM/YY" 
+                        className="w-full bg-accent/30 border border-border rounded-xl py-3.5 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-foreground/20 text-center font-mono" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest ml-1">CVC</label>
+                      <input 
+                        required 
+                        type="text" 
+                        placeholder="123" 
+                        className="w-full bg-accent/30 border border-border rounded-xl py-3.5 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-foreground/20 text-center font-mono" 
+                      />
+                    </div>
+                 </div>
+                 
+                 <div className="pt-4">
+                   <button 
+                    type="submit" 
+                    disabled={isProcessing}
+                    className="w-full bg-primary hover:opacity-90 text-primary-foreground py-4 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                   >
+                      {isProcessing ? (
+                        <><Loader2 className="animate-spin h-5 w-5"/> Processing...</>
+                      ) : (
+                        `Pay ₹${finalTotal.toFixed(2)}`
+                      )}
+                   </button>
                  </div>
               </div>
-           </form>
+            </form>
         </div>
       )}
 

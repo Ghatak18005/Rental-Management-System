@@ -5,9 +5,11 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { 
   Search, ShoppingCart, User, ChevronDown, LogOut, Settings, 
-  Package, Heart, Loader2, Calendar, X, Info, UserCircle, Filter
+  Package, Heart, Loader2, Calendar, X, Info, UserCircle, Filter, 
+  CheckCircle2, AlertCircle, Sun, Moon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTheme } from "next-themes";
 
 // --- Types based on your DB Schema ---
 interface ProductTemplate {
@@ -19,7 +21,6 @@ interface ProductTemplate {
   sku: string | null;
   is_rentable: boolean;
   category_id: string | null;
-  // Mocking these for UI filters since they aren't in DB yet
   colors?: string[]; 
   duration_options?: string[];
 }
@@ -32,11 +33,13 @@ const DURATIONS = ["1 Month", "6 Months", "1 Year"];
 export default function CustomerDashboard() {
   const supabase = createClient();
   const router = useRouter();
+  const { setTheme, resolvedTheme } = useTheme();
   
   // Data State
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [products, setProducts] = useState<ProductTemplate[]>([]);
+  const [mounted, setMounted] = useState(false);
   
   // Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,6 +61,7 @@ export default function CustomerDashboard() {
 
   // --- 1. INITIAL FETCH ---
   useEffect(() => {
+    setMounted(true);
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -182,30 +186,21 @@ export default function CustomerDashboard() {
 
   // --- FILTER LOGIC ---
   const filteredProducts = products.filter(product => {
-     // 1. Search
-     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-     
-     // 2. Price
-     const matchesPrice = (product.cost_price || 0) <= priceRange;
-     
-     // 3. Category (Mock logic: Checking if name contains category keyword for now as DB category_id is uuid)
-     // In real app: join category table or check category_id
-     const matchesCategory = selectedCategory 
-       ? product.name.toLowerCase().includes(selectedCategory.toLowerCase()) // Simple keyword match for demo
-       : true;
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesPrice = (product.cost_price || 0) <= priceRange;
+      const matchesCategory = selectedCategory 
+        ? product.name.toLowerCase().includes(selectedCategory.toLowerCase()) 
+        : true;
+      const matchesColor = selectedColor ? true : true; 
+      const matchesDuration = selectedDuration ? true : true;
 
-     // 4. Color & Duration (Mock logic for UI demo since columns missing in DB)
-     // These will pass true for now to show functionality
-     const matchesColor = selectedColor ? true : true; 
-     const matchesDuration = selectedDuration ? true : true;
-
-     return matchesSearch && matchesPrice && matchesCategory && matchesColor && matchesDuration;
+      return matchesSearch && matchesPrice && matchesCategory && matchesColor && matchesDuration;
   });
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="min-h-screen bg-background flex items-center justify-center text-primary">
+        <Loader2 className="h-10 w-10 animate-spin" />
       </div>
     );
   }
@@ -213,65 +208,100 @@ export default function CustomerDashboard() {
   const avatarUrl = user?.user_metadata?.avatar_url;
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-sans selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 selection:text-primary transition-colors duration-300">
       
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#121212] border-b border-gray-800 px-6 py-4">
+      {/* ================= BACKGROUND EFFECTS ================= */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[10%] right-[5%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[10%] left-[5%] w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[120px]"></div>
+      </div>
+
+      {/* ================= CUSTOM DASHBOARD NAVBAR ================= */}
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border px-6 py-4">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+          
+          {/* Left: Logo & Nav */}
           <div className="flex items-center space-x-12">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => router.push('/dashboard')}>
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-xs">YL</span>
+            <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => router.push('/dashboard')}>
+              <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+                <span className="text-primary-foreground font-bold text-xs">RF</span>
               </div>
-              <span className="font-bold text-lg tracking-wide">RentFlow</span>
+              <span className="font-bold text-lg tracking-tight">RentFlow</span>
             </div>
-            <nav className="hidden lg:flex space-x-8 text-sm text-gray-300">
-              <a href="#" className="hover:text-white transition-colors">Products</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">About</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
+            
+            <nav className="hidden lg:flex space-x-6 text-sm font-medium text-foreground/60">
+              <a href="#" className="hover:text-primary transition-colors">Products</a>
+              <a href="#" className="hover:text-primary transition-colors">Orders</a>
+              <a href="#" className="hover:text-primary transition-colors">Support</a>
             </nav>
           </div>
 
-          <div className="flex items-center space-x-6">
+          {/* Right: Actions */}
+          <div className="flex items-center space-x-4 md:space-x-6">
+            
+            {/* Search Bar */}
             <div className="relative hidden md:block">
               <input 
                 type="text" 
                 placeholder="Search products..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-[#1E1E1E] border border-gray-700 rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none focus:border-purple-500 w-64 text-white"
+                className="bg-accent/50 border border-border rounded-full py-2.5 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-64 text-foreground transition-all placeholder:opacity-50"
               />
-              <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Search className="absolute right-3 top-2.5 h-4 w-4 text-foreground/40" />
             </div>
 
-            <div className="flex items-center space-x-5">
-              <Heart className="h-6 w-6 text-gray-400 cursor-pointer hover:text-white" />
+            {/* Icons Group */}
+            <div className="flex items-center space-x-4">
               
-              <button onClick={() => router.push('/dashboard/cart')} className="text-gray-400 hover:text-white relative">
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                className="p-2 text-foreground/60 hover:text-primary hover:bg-accent rounded-full transition-all"
+                title="Toggle Theme"
+              >
+                {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+
+              <Heart className="h-6 w-6 text-foreground/60 cursor-pointer hover:text-primary transition-colors hidden sm:block" />
+              
+              <button onClick={() => router.push('/dashboard/cart')} className="text-foreground/60 hover:text-primary relative transition-colors">
                 <ShoppingCart className="h-6 w-6" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full animate-in zoom-in">
+                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full animate-in zoom-in shadow-sm">
                     {cartCount}
                   </span>
                 )}
               </button>
               
+              {/* Profile Dropdown */}
               <div className="relative">
-                <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:ring-2 hover:ring-purple-500 transition-all overflow-hidden">
+                <button 
+                  onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                  className="w-10 h-10 bg-accent rounded-full flex items-center justify-center border border-border hover:border-primary transition-all overflow-hidden"
+                >
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <User className="h-5 w-5 text-gray-300" />
+                    <User className="h-5 w-5 text-foreground/50" />
                   )}
                 </button>
+                
                 {isProfileOpen && (
-                  <div className="absolute right-0 mt-4 w-64 bg-[#1E1E1E] border border-gray-600 rounded-lg shadow-2xl z-50 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-700">
-                      <p className="text-sm text-white font-bold">{user.user_metadata?.full_name || 'User'}</p>
+                  
+                  <div className="absolute right-0 mt-4 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                    <div className="px-6 py-4 border-b border-border bg-accent/30">
+                      <p className="text-sm font-bold text-foreground">{user.user_metadata?.full_name || 'User'}</p>
+                      <p className="text-xs text-foreground/50 truncate">{user.email}</p>
                     </div>
-                    <a href="/profile" className="flex items-center px-6 py-3 text-sm text-gray-200 hover:bg-gray-800"><UserCircle className="w-4 h-4 mr-3"/> Profile</a>
-                    <button onClick={handleLogout} className="w-full flex items-center px-6 py-3 text-sm text-red-400 hover:bg-gray-800"><LogOut className="w-4 h-4 mr-3"/> Logout</button>
+                    <div className="p-2">
+                      <a href="/profile" className="flex items-center px-4 py-2.5 text-sm text-foreground/70 hover:bg-accent rounded-lg transition-colors">
+                        <UserCircle className="w-4 h-4 mr-3"/> Profile
+                      </a>
+                      <button onClick={handleLogout} className="w-full flex items-center px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                        <LogOut className="w-4 h-4 mr-3"/> Logout
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -281,25 +311,25 @@ export default function CustomerDashboard() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto flex pt-8 px-6 pb-12 gap-8">
+      <div className="relative z-10 max-w-[1600px] mx-auto flex pt-8 px-6 pb-12 gap-8">
         
         {/* ================= LEFT SIDEBAR FILTERS ================= */}
-        <aside className="w-64 flex-shrink-0 hidden lg:block space-y-8 sticky top-28 h-fit overflow-y-auto pb-10">
+        <aside className="w-64 flex-shrink-0 hidden lg:block space-y-8 sticky top-28 h-fit overflow-y-auto pb-10 scrollbar-hide">
            
            {/* Brand / Category Filter */}
-           <div className="bg-[#1E1E1E] p-5 rounded-xl border border-gray-800">
+           <div className="bg-card p-5 rounded-2xl border border-border shadow-sm">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-lg">Category</h3>
-              {selectedCategory ? (
-                <button onClick={() => setSelectedCategory(null)} className="text-xs text-purple-400 hover:text-purple-300">Clear</button>
-              ) : <span className="bg-gray-700 w-5 h-0.5"></span>}
+              <h3 className="font-bold text-sm uppercase tracking-wider opacity-70">Category</h3>
+              {selectedCategory && (
+                <button onClick={() => setSelectedCategory(null)} className="text-xs text-primary hover:underline">Clear</button>
+              )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               {CATEGORIES.map((cat) => (
                 <div 
                   key={cat} 
                   onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                  className={`cursor-pointer text-sm flex items-center p-2 rounded-lg transition-all ${selectedCategory === cat ? 'bg-purple-900/30 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                  className={`cursor-pointer text-sm flex items-center px-3 py-2 rounded-lg transition-all font-medium ${selectedCategory === cat ? 'bg-primary/10 text-primary' : 'text-foreground/60 hover:text-foreground hover:bg-accent'}`}
                 >
                   {cat}
                 </div>
@@ -308,51 +338,30 @@ export default function CustomerDashboard() {
           </div>
 
           {/* Color Filter */}
-          <div className="bg-[#1E1E1E] p-5 rounded-xl border border-gray-800">
+          <div className="bg-card p-5 rounded-2xl border border-border shadow-sm">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-lg">Color</h3>
-              {selectedColor ? (
-                <button onClick={() => setSelectedColor(null)} className="text-xs text-purple-400 hover:text-purple-300">Clear</button>
-              ) : <span className="bg-gray-700 w-5 h-0.5"></span>}
+              <h3 className="font-bold text-sm uppercase tracking-wider opacity-70">Color</h3>
+              {selectedColor && (
+                <button onClick={() => setSelectedColor(null)} className="text-xs text-primary hover:underline">Clear</button>
+              )}
             </div>
             <div className="grid grid-cols-4 gap-3">
               {COLORS.map((color) => (
                 <div 
                   key={color} 
                   onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                  className={`w-8 h-8 rounded-full cursor-pointer hover:scale-110 transition-all border-2 ${selectedColor === color ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-transparent'}`}
+                  className={`w-8 h-8 rounded-full cursor-pointer hover:scale-110 transition-all border-2 shadow-sm ${selectedColor === color ? 'border-primary ring-2 ring-primary/30' : 'border-transparent'}`}
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
           </div>
 
-          {/* Duration Filter */}
-          <div className="bg-[#1E1E1E] p-5 rounded-xl border border-gray-800">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-lg">Duration</h3>
-              {selectedDuration ? (
-                <button onClick={() => setSelectedDuration(null)} className="text-xs text-purple-400 hover:text-purple-300">Clear</button>
-              ) : <span className="bg-gray-700 w-5 h-0.5"></span>}
-            </div>
-            <div className="space-y-2">
-              {DURATIONS.map((dur) => (
-                <div 
-                  key={dur} 
-                  onClick={() => setSelectedDuration(selectedDuration === dur ? null : dur)}
-                  className={`cursor-pointer text-sm p-2 rounded-lg transition-all ${selectedDuration === dur ? 'text-purple-400 font-bold' : 'text-gray-400 hover:text-white'}`}
-                >
-                  {dur}
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Price Filter */}
-          <div className="bg-[#1E1E1E] p-5 rounded-xl border border-gray-800">
+          <div className="bg-card p-5 rounded-2xl border border-border shadow-sm">
             <div className="flex justify-between items-center mb-6">
-               <h3 className="font-semibold text-lg">Price Range</h3>
-               {priceRange < 5000 && <button onClick={() => setPriceRange(5000)} className="text-xs text-purple-400 hover:text-purple-300">Reset</button>}
+               <h3 className="font-bold text-sm uppercase tracking-wider opacity-70">Max Price</h3>
+               {priceRange < 5000 && <button onClick={() => setPriceRange(5000)} className="text-xs text-primary hover:underline">Reset</button>}
             </div>
             <input
               type="range"
@@ -360,11 +369,11 @@ export default function CustomerDashboard() {
               max="5000"
               value={priceRange}
               onChange={(e) => setPriceRange(Number(e.target.value))}
-              className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              className="w-full h-1.5 bg-accent rounded-lg appearance-none cursor-pointer accent-primary"
             />
-            <div className="flex justify-between mt-4 text-xs font-mono text-gray-400">
-              <span>$0</span>
-              <span>${priceRange}</span>
+            <div className="flex justify-between mt-4 text-xs font-mono font-bold opacity-60">
+              <span>₹0</span>
+              <span>₹{priceRange}</span>
             </div>
           </div>
 
@@ -377,30 +386,32 @@ export default function CustomerDashboard() {
                 setSelectedDuration(null);
                 setPriceRange(5000);
               }}
-              className="w-full py-2 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all text-sm"
+              className="w-full py-3 border border-dashed border-border rounded-xl text-foreground/50 hover:text-primary hover:border-primary hover:bg-primary/5 transition-all text-sm font-bold flex items-center justify-center gap-2"
             >
-              Reset All Filters
+              <X size={14} /> Reset Filters
             </button>
           )}
         </aside>
 
         {/* ================= PRODUCT GRID ================= */}
         <main className="flex-1">
-          <div className="flex justify-between items-end mb-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
             <div>
-              <h1 className="text-2xl font-bold">Available Equipment</h1>
-              <p className="text-sm text-gray-400 mt-1">Showing {filteredProducts.length} results</p>
+              <h1 className="text-3xl font-bold tracking-tight">Available Equipment</h1>
+              <p className="text-foreground/50 mt-1 font-medium">Found {filteredProducts.length} items matching your criteria</p>
             </div>
           </div>
           
           {filteredProducts.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-32 bg-[#1E1E1E] rounded-xl border border-gray-800 text-gray-400">
-               <Filter className="h-16 w-16 mb-4 opacity-20"/>
-               <h3 className="text-xl font-bold">No products found</h3>
-               <p className="text-sm mt-2 text-gray-500">Try adjusting your filters to see more results.</p>
+             <div className="flex flex-col items-center justify-center py-32 bg-card rounded-3xl border border-border text-foreground/40 shadow-sm">
+               <div className="w-20 h-20 bg-accent rounded-full flex items-center justify-center mb-4">
+                 <Filter className="h-8 w-8 opacity-50"/>
+               </div>
+               <h3 className="text-xl font-bold text-foreground">No products found</h3>
+               <p className="text-sm mt-2 max-w-xs text-center">Try adjusting your filters.</p>
                <button 
                  onClick={() => {setSelectedCategory(null); setSelectedColor(null); setSelectedDuration(null); setPriceRange(5000); setSearchQuery('')}}
-                 className="mt-6 text-purple-400 hover:underline"
+                 className="mt-6 text-primary hover:underline font-bold text-sm"
                >
                  Clear all filters
                </button>
@@ -408,51 +419,57 @@ export default function CustomerDashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
-                <div key={product.id} className="group relative bg-[#1E1E1E] rounded-2xl overflow-hidden border border-gray-800 hover:border-purple-500/50 transition-all hover:shadow-2xl">
+                <div key={product.id} className="group relative bg-card rounded-3xl overflow-hidden border border-border hover:border-primary/30 transition-all hover:shadow-2xl hover:shadow-primary/5">
                   
-                  {/* --- WISHLIST BUTTON (Added) --- */}
+                  {/* --- WISHLIST BUTTON --- */}
                   <button 
                     onClick={(e) => toggleWishlist(e, product.id)}
-                    className="absolute top-3 right-3 z-10 p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-purple-600 transition-colors"
+                    className="absolute top-4 right-4 z-10 p-2.5 bg-background/50 backdrop-blur-md rounded-full text-foreground hover:bg-red-50 hover:text-red-500 transition-colors border border-transparent hover:border-red-200"
                   >
-                    <Heart className={`h-4 w-4 ${wishlist.has(product.id) ? 'fill-white text-white' : 'text-gray-300'}`} />
+                    <Heart className={`h-4 w-4 ${wishlist.has(product.id) ? 'fill-red-500 text-red-500' : 'text-foreground/70'}`} />
                   </button>
 
                   {/* Image Placeholder */}
-                  <div className="h-56 overflow-hidden relative p-6 bg-[#252525] flex items-center justify-center group-hover:bg-[#2a2a2a] transition-colors">
+                  <div className="h-64 overflow-hidden relative p-8 bg-accent/20 flex items-center justify-center group-hover:bg-accent/30 transition-colors">
                     <img 
                       src={`https://source.unsplash.com/random/400x400/?technology&sig=${product.id}`} 
                       alt={product.name} 
-                      className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-500 opacity-90 group-hover:opacity-100" 
+                      className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500 mix-blend-multiply dark:mix-blend-normal" 
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300?text=No+Image';
                       }}
                     />
                     {!product.is_rentable && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                        <span className="bg-red-500/90 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-red-400">Not Rentable</span>
+                      <div className="absolute inset-0 bg-background/60 flex items-center justify-center backdrop-blur-sm">
+                        <span className="bg-destructive/10 text-destructive text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-destructive/20 flex items-center gap-2">
+                          <AlertCircle size={12} /> Not Rentable
+                        </span>
                       </div>
                     )}
                   </div>
 
                   {/* Card Body */}
-                  <div className="p-5">
+                  <div className="p-6">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-gray-100 truncate text-lg flex-1 mr-2">{product.name}</h3>
+                      <h3 className="font-bold text-lg truncate flex-1 mr-2">{product.name}</h3>
                     </div>
-                    <p className="text-xs text-gray-500 mb-4 h-8 line-clamp-2">{product.description || 'Professional grade equipment available for rent.'}</p>
+                    <p className="text-xs text-foreground/50 mb-6 h-8 line-clamp-2 leading-relaxed">
+                      {product.description || 'Professional grade equipment available for rent.'}
+                    </p>
                     
-                    <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
                       <div>
-                        <span className="text-xs text-gray-400 block uppercase">Price</span>
-                        <span className="text-lg font-bold text-purple-400">Rs {product.cost_price || 0}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">/ day</span>
+                        <span className="text-[10px] font-bold text-foreground/40 block uppercase tracking-wider">Daily Rate</span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-black text-primary">₹{product.cost_price || 0}</span>
+                          <span className="text-xs text-foreground/40 font-medium">/ day</span>
+                        </div>
                       </div>
                       
                       <button 
                         onClick={() => setSelectedProduct(product)} 
                         disabled={!product.is_rentable}
-                        className="bg-white text-black hover:bg-purple-500 hover:text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-primary text-primary-foreground hover:opacity-90 text-xs font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                       >
                         Rent Now
                       </button>
@@ -467,52 +484,55 @@ export default function CustomerDashboard() {
 
       {/* ================= QUICK RENT MODAL ================= */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1E1E1E] w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-md rounded-3xl border border-border shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden">
             
-            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white">Rent {selectedProduct.name}</h2>
-              <button onClick={() => setSelectedProduct(null)} className="text-gray-400 hover:text-white">
-                <X className="h-5 w-5" />
+            <div className="px-6 py-5 border-b border-border flex justify-between items-center bg-accent/10">
+              <div>
+                <h2 className="text-lg font-bold">Quick Rent</h2>
+                <p className="text-xs text-foreground/50">Configure dates for <span className="text-primary font-bold">{selectedProduct.name}</span></p>
+              </div>
+              <button onClick={() => setSelectedProduct(null)} className="p-2 hover:bg-accent rounded-full transition-colors">
+                <X className="h-5 w-5 opacity-60" />
               </button>
             </div>
 
             <div className="p-6 space-y-6">
-              <div className="flex items-center p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg text-sm text-purple-200">
-                <Info className="h-4 w-4 mr-2" />
-                Select dates to check availability.
+              <div className="flex items-start p-4 bg-primary/5 border border-primary/10 rounded-xl text-sm text-foreground/70">
+                <Info className="h-5 w-5 mr-3 text-primary flex-shrink-0 mt-0.5" />
+                <p className="leading-snug">Selecting dates will temporarily block this item in your cart for 15 minutes.</p>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1 uppercase font-bold">Start Date</label>
+                  <label className="block text-[10px] font-bold text-foreground/40 mb-1.5 uppercase tracking-wider">Pick-up Date</label>
                   <input 
                     type="datetime-local" 
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-[#121212] border border-gray-700 rounded-lg py-2 px-4 text-white text-sm focus:border-purple-500 outline-none" 
+                    className="w-full bg-accent/30 border border-border rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1 uppercase font-bold">End Date</label>
+                  <label className="block text-[10px] font-bold text-foreground/40 mb-1.5 uppercase tracking-wider">Return Date</label>
                   <input 
                     type="datetime-local" 
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-[#121212] border border-gray-700 rounded-lg py-2 px-4 text-white text-sm focus:border-purple-500 outline-none" 
+                    className="w-full bg-accent/30 border border-border rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" 
                   />
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-800 flex justify-end gap-3 bg-[#1a1a1a] rounded-b-2xl">
-              <button onClick={() => setSelectedProduct(null)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800">
+            <div className="p-6 border-t border-border flex justify-end gap-3 bg-accent/5">
+              <button onClick={() => setSelectedProduct(null)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-foreground/60 hover:text-foreground hover:bg-accent transition-colors">
                 Cancel
               </button>
               <button 
                 onClick={handleQuickAddToCart}
                 disabled={addingToCart}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg disabled:opacity-50"
+                className="bg-primary hover:opacity-90 text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center"
               >
-                {addingToCart ? <span className="flex items-center"><Loader2 className="animate-spin h-4 w-4 mr-2"/> Adding...</span> : 'Confirm & Add'}
+                {addingToCart ? <><Loader2 className="animate-spin h-4 w-4 mr-2"/> Processing...</> : <><CheckCircle2 className="w-4 h-4 mr-2"/> Confirm Booking</>}
               </button>
             </div>
 

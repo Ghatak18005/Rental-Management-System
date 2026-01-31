@@ -232,12 +232,12 @@ export default function CustomerDashboard() {
             <div className="flex items-center space-x-5">
               <Heart className="h-6 w-6 text-gray-400 cursor-pointer hover:text-white" />
 
-              <button className="text-gray-400 hover:text-white relative">
-                <ShoppingCart className="h-6 w-6" />
-                <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full">
-                  0
-                </span>
-              </button>
+              <button onClick={() => router.push('/dashboard/cart')} className="text-gray-400 hover:text-white relative">
+  <ShoppingCart className="h-6 w-6" />
+  <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full">
+    0
+  </span>
+</button>
 
               {/* USER PROFILE DROPDOWN */}
               <div className="relative">
@@ -474,7 +474,7 @@ export default function CustomerDashboard() {
                 }}
                 className="mt-6 text-purple-400 hover:underline"
               >
-                Clear all filters
+                Clear all filter
               </button>
             </div>
           )}

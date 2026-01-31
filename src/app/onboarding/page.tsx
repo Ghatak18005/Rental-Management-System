@@ -88,38 +88,43 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-bold text-center mb-2">Complete Your Profile</h2>
-        <p className="text-center text-gray-600 mb-6">
-          You are signing up as a <span className="font-bold text-blue-600">{role}</span>
+    // Page Container
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+      
+      {/* Card Container */}
+      <div className="max-w-md w-full bg-card border border-border rounded-xl shadow-xl p-8 transition-colors duration-300">
+        
+        {/* Header */}
+        <h2 className="text-2xl font-bold text-center mb-2 text-foreground">Complete Your Profile</h2>
+        <p className="text-center text-foreground/60 mb-6">
+          You are signing up as a <span className="font-bold text-primary">{role}</span>
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Vendor Specific Fields */}
           {role === "VENDOR" && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">Company Name</label>
                 <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-foreground/40" />
                   <input
                     required
                     value={formData.company_name}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-foreground/30 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-all"
                     onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
                     placeholder="Company Name"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN</label>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">GSTIN</label>
                 <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-foreground/40" />
                   <input
                     required
                     value={formData.gstin}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-foreground/30 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-all"
                     onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
                     placeholder="GSTIN Number"
                   />
@@ -130,23 +135,24 @@ export default function Onboarding() {
 
           {/* Common Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number (Optional)</label>
+            <label className="block text-sm font-medium text-foreground/80 mb-1">Mobile Number (Optional)</label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-foreground/40" />
               <input
                 type="tel"
                 value={formData.mobile}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-foreground/30 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-all"
                 onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                 placeholder="Mobile Number"
               />
             </div>
           </div>
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold hover:opacity-90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
           >
             {loading ? (
               <>

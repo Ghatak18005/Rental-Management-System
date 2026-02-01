@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -26,7 +26,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {/* Ensure ToastProvider is inside ThemeProvider for themed toasts */}
-          <ToastProvider /> 
+          <ToastProvider />
           {children}
         </ThemeProvider>
       </body>

@@ -25,7 +25,7 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  
+
   // Dates for rental
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -40,19 +40,49 @@ export default function CartPage() {
           return;
         }
 
-        // Fetch cart items joined with product details
-        const { data, error } = await supabase
+        // 1. Fetch Cart Items
+        const { data: cartItemsData, error: cartError } = await supabase
           .from('cart_items')
-          .select(`
-            id, quantity, rental_days, product_id,
-            product:products(name, price, image_url)
-          `)
+          .select('id, quantity, rental_days, product_id')
           .eq('user_id', user.id);
 
-        if (error) throw error;
-        setCartItems(data || []);
-      } catch (error) {
-        console.error('Error fetching cart:', error);
+        if (cartError) throw cartError;
+
+        if (!cartItemsData || cartItemsData.length === 0) {
+          setCartItems([]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch Products manually
+        const productIds = cartItemsData.map(item => item.product_id);
+        const { data: productsData, error: prodError } = await supabase
+          .from('products')
+          .select('id, name, price, image_url')
+          .in('id', productIds);
+
+        if (prodError) throw prodError;
+
+        // 3. Merge Data
+        const mergedItems: CartItem[] = cartItemsData.map(item => {
+          const product = productsData?.find(p => p.id === item.product_id);
+          return {
+            id: item.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            rental_days: item.rental_days,
+            product: {
+              name: product?.name || 'Unknown Product',
+              price: product?.price || 0,
+              image_url: product?.image_url
+            }
+          };
+        });
+
+        setCartItems(mergedItems);
+      } catch (error: any) {
+        console.error('Error fetching cart:', error.message || error);
+        toast.error('Failed to load cart');
       } finally {
         setLoading(false);
       }
@@ -67,7 +97,7 @@ export default function CartPage() {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 1;
   };
 
@@ -150,7 +180,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-900">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 flex items-center gap-3">
-          <ShoppingCart className="h-8 w-8 text-purple-600"/> 
+          <ShoppingCart className="h-8 w-8 text-purple-600" />
           Your Cart
         </h1>
 
@@ -163,20 +193,20 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
+
             {/* LEFT: CART ITEMS */}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-6 border border-gray-100">
                   <div className="h-20 w-20 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
-                     {/* Placeholder image if none exists */}
-                     {item.product.image_url ? (
-                       <img src={item.product.image_url} alt={item.product.name} className="h-full w-full object-cover"/>
-                     ) : (
-                       <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No Image</div>
-                     )}
+                    {/* Placeholder image if none exists */}
+                    {item.product.image_url ? (
+                      <img src={item.product.image_url} alt={item.product.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No Image</div>
+                    )}
                   </div>
-                  
+
                   <div className="flex-1">
                     <h3 className="font-bold text-lg">{item.product.name}</h3>
                     <p className="text-gray-500 text-sm">Unit Price: ₹{item.product.price}/day</p>
@@ -187,7 +217,7 @@ export default function CartPage() {
                       <p className="text-xs text-gray-400 uppercase font-bold">Qty</p>
                       <p className="font-medium">{item.quantity}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleRemoveItem(item.id)}
                       className="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
                     >
@@ -202,30 +232,30 @@ export default function CartPage() {
             <div className="lg:col-span-1">
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 sticky top-6">
                 <h2 className="text-xl font-bold mb-6">Rental Summary</h2>
-                
+
                 <div className="space-y-4 mb-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                     <div className="relative">
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
                       />
-                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"/>
+                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
                     <div className="relative">
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
                       />
-                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"/>
+                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     </div>
                   </div>
                 </div>
@@ -245,14 +275,14 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <button 
+                <button
                   onClick={handleCheckout}
                   disabled={checkoutLoading || cartItems.length === 0}
                   className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {checkoutLoading ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin"/> Processing...
+                      <Loader2 className="h-5 w-5 animate-spin" /> Processing...
                     </>
                   ) : (
                     <>

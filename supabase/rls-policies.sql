@@ -195,3 +195,45 @@ WITH CHECK (
   id = auth.uid()
 );
 
+-- ============================================
+-- ADMIN POLICIES FOR ADDITIONAL TABLES
+-- ============================================
+
+-- Admins have full access to products
+CREATE POLICY "Admins have full access to products"
+ON public.products
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.users
+    WHERE users.id = auth.uid()
+    AND users.role = 'ADMIN'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.users
+    WHERE users.id = auth.uid()
+    AND users.role = 'ADMIN'
+  )
+);
+
+-- Admins have full access to invoices
+CREATE POLICY "Admins have full access to invoices"
+ON public.invoices
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.users
+    WHERE users.id = auth.uid()
+    AND users.role = 'ADMIN'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.users
+    WHERE users.id = auth.uid()
+    AND users.role = 'ADMIN'
+  )
+);
+

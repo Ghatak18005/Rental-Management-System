@@ -34,13 +34,16 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Data Lists
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
 
   // Form State
-  const [status, setStatus] = useState(isOrder ? 'Quotation' : 'Draft');
+  const [status, setStatus] = useState(isOrder ? 'quotation' : 'draft');
   const [formData, setFormData] = useState({
     id: isNew ? undefined : documentId,
     displayId: isNew ? 'Draft' : documentId.slice(0, 8).toUpperCase(),
@@ -58,6 +61,43 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
 
   const [couponCode, setCouponCode] = useState('');
 
+  // --- REALTIME: LISTEN FOR STATUS CHANGES ---
+  useEffect(() => {
+    const targetId = formData.id;
+    if (!targetId || targetId === 'new') return;
+
+    const channel = supabase
+      .channel(`order_updates_${targetId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: isOrder ? 'rental_orders' : 'invoices',
+          filter: `id=eq.${targetId}`
+        },
+        (payload) => {
+          if (payload.new && payload.new.status) {
+            const newStatus = payload.new.status;
+            // Only update if status implies progression (or just always sync?)
+            // Always sync is safer for "Confirmed"
+            setStatus(current => {
+              if (current !== newStatus) {
+                toast.success(`Status updated: ${newStatus}`, { icon: '🔄' });
+                return newStatus;
+              }
+              return current;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [formData.id, isOrder, supabase]);
+
   // --- 1. LOAD DATA ---
   useEffect(() => {
     const fetchData = async () => {
@@ -67,7 +107,7 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
         // A. Fetch Customers ONLY (Filter out Vendors)
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('id, full_name, email')
+          .select('id, name, email')
           .eq('role', 'CUSTOMER'); // <--- CRITICAL FILTER
 
         if (userError) console.error('Error fetching users:', userError);
@@ -91,9 +131,9 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
             .single();
 
           if (docError) {
-             console.error('Error fetching document:', docError);
-             // If not found, maybe redirect or show error? 
-             // keeping silent for now to allow "new" flows to work if ID is fake
+            console.error('Error fetching document:', docError);
+            // If not found, maybe redirect or show error? 
+            // keeping silent for now to allow "new" flows to work if ID is fake
           }
 
           if (doc) {
@@ -101,7 +141,7 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
               id: doc.id,
               displayId: doc.id.slice(0, 8).toUpperCase(),
               customer_id: doc.customer_id,
-              invoiceAddress: '', 
+              invoiceAddress: '',
               deliveryAddress: '',
               date: doc.created_at ? doc.created_at.split('T')[0] : '',
               startDate: doc.rental_start || '',
@@ -160,11 +200,11 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
   const calculateTotal = () => lines.reduce((sum, line) => sum + line.amount, 0);
 
   // --- ACTIONS: SAVE / CONFIRM ---
-  const handleSave = async (newStatus?: string) => {
+  const handleSave = async (newStatus?: string, overrideId?: string) => {
     setSaving(true);
     const finalStatus = newStatus || status;
     const total = calculateTotal();
-    let docId = formData.id;
+    let docId = overrideId || formData.id;
 
     try {
       // 1. Upsert Header
@@ -208,28 +248,27 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
 
       if (docId) {
         await supabase.from(itemsTable).delete().eq(foreignKey, docId);
-        
+
         const itemsToInsert = lines.map(line => ({
           [foreignKey]: docId,
           product_name: line.product,
           quantity: line.quantity,
-          price: line.unitPrice, // Make sure DB uses 'price' or 'unit_price' consistently
+          price: line.unitPrice,
           // amount: line.amount 
         }));
 
         if (itemsToInsert.length > 0) {
-            const { error: itemsError } = await supabase.from(itemsTable).insert(itemsToInsert);
-            if (itemsError) throw itemsError;
+          const { error: itemsError } = await supabase.from(itemsTable).insert(itemsToInsert);
+          if (itemsError) throw itemsError;
         }
       }
 
       toast.success("Saved successfully!");
       setStatus(finalStatus);
-      
+
       // Update form ID if we just created a new one
-      if (isNew && docId) {
+      if (isNew && docId && !formData.id) {
         setFormData(prev => ({ ...prev, id: docId, displayId: docId!.slice(0, 8).toUpperCase() }));
-        // Optionally redirect: router.push(`/admin/orders/${docId}`);
       }
 
     } catch (err: any) {
@@ -237,17 +276,18 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
       toast.error("Failed to save: " + err.message);
     } finally {
       setSaving(false);
+      return docId;
     }
   };
 
-  const handleConfirm = () => handleSave(isOrder ? 'confirmed' : 'Posted');
+  const handleConfirm = () => handleSave(isOrder ? 'confirmed' : 'posted');
 
   const handleCreateInvoice = async () => {
     if (status !== 'confirmed') {
       toast.error("Order must be confirmed first");
       return;
     }
-    
+
     setIsCreatingInvoice(true);
     try {
       // Create Invoice Header
@@ -255,7 +295,7 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
         order_id: formData.id,
         customer_id: formData.customer_id,
         total_amount: calculateTotal(),
-        status: 'Draft'
+        status: 'draft'
       }).select().single();
 
       if (error) throw error;
@@ -270,10 +310,10 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
       }));
 
       await supabase.from('invoice_items').insert(invoiceItems);
-      
+
       toast.success("Invoice Created!");
       router.push(`/admin/invoices/${inv.id}`);
-      
+
     } catch (err: any) {
       toast.error("Error creating invoice: " + err.message);
     } finally {
@@ -281,10 +321,138 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
     }
   };
 
+  const handleSendQuotation = async () => {
+    if (!formData.customer_id) {
+      toast.error("Please select a customer first");
+      return;
+    }
+
+    if (lines.length === 0) {
+      toast.error("Please add at least one product");
+      return;
+    }
+
+    let currentOrderId = formData.id;
+
+    // Save first if new or to ensure changes are persisted
+    if (isNew || !currentOrderId) {
+      currentOrderId = await handleSave('quotation');
+      if (!currentOrderId) return; // Exit if save failed
+    }
+
+    setIsSending(true);
+    try {
+      // Get customer email
+      const { data: customer } = await supabase
+        .from('users')
+        .select('email, name')
+        .eq('id', formData.customer_id)
+        .single();
+
+      if (!customer) throw new Error("Customer not found");
+
+      // Send email
+      const response = await fetch('/api/send-quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail: customer.email,
+          customerName: customer.name,
+          orderId: formData.displayId,
+          id: currentOrderId,
+          orderDetails: lines.map(line => ({
+            product: line.product,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            amount: line.amount
+          })),
+          totalAmount: calculateTotal()
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update status to quotation_sent - PASS ID EXPLICITLY
+        await handleSave('quotation_sent', currentOrderId);
+        toast.success("Quotation sent successfully!");
+      } else {
+        throw new Error(result.error || "Failed to send email");
+      }
+
+    } catch (err: any) {
+      toast.error("Error sending quotation: " + err.message);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleConfirmOrder = async () => {
+    setIsConfirming(true);
+    try {
+      // First save the order with confirmed status
+      await handleSave('confirmed');
+
+      // Then send confirmation email to customer
+      if (formData.customer_id && lines.length > 0) {
+        try {
+          // Get customer email
+          const { data: customer } = await supabase
+            .from('users')
+            .select('email, name')
+            .eq('id', formData.customer_id)
+            .single();
+
+          if (customer) {
+            // Send confirmation email
+            await fetch('/api/send-confirmation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerEmail: customer.email,
+                customerName: customer.name,
+                orderId: formData.displayId,
+                id: formData.id,
+                orderDetails: lines.map(line => ({
+                  product: line.product,
+                  quantity: line.quantity,
+                  unitPrice: line.unitPrice,
+                  amount: line.amount
+                })),
+                totalAmount: calculateTotal()
+              })
+            });
+          }
+        } catch (emailError) {
+          console.error('Email send error:', emailError);
+          // Don't fail the confirmation if email fails
+        }
+      }
+
+      toast.success("Order confirmed and customer notified!");
+    } catch (err: any) {
+      toast.error("Error confirming order: " + err.message);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handlePrint = () => {
+    setIsPrinting(true);
+    try {
+      window.print();
+      toast.success("Print dialog opened");
+    } catch (err: any) {
+      toast.error("Error printing: " + err.message);
+    } finally {
+      setTimeout(() => setIsPrinting(false), 500);
+    }
+  };
+
   const handleAddLine = () => {
-    setLines([...lines, { 
-      id: Math.random().toString(36).substr(2, 9), 
-      product: '', description: '', quantity: 1, unit: 'Units', unitPrice: 0, taxes: 0, amount: 0 
+    setLines([...lines, {
+      id: Math.random().toString(36).substr(2, 9),
+      product: '', description: '', quantity: 1, unit: 'Units', unitPrice: 0, taxes: 0, amount: 0
     }]);
   };
 
@@ -294,50 +462,78 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
 
   return (
     <div className="bg-[#121212] min-h-screen text-white font-sans p-6">
-      
+
       {/* --- TOP HEADER --- */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="bg-[#E879F9] text-black px-3 py-1 rounded font-bold text-sm shadow-lg">
-           {isNew ? 'New' : status}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            className="text-gray-400 hover:text-white flex items-center gap-1 text-sm font-medium transition-colors"
+          >
+            ← Back
+          </button>
+          <div className="bg-[#E879F9] text-black px-3 py-1 rounded font-bold text-sm shadow-lg">
+            {isNew ? 'New' : status}
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white/90">
+            {isOrder ? 'Rental Order' : 'Invoice'}
+          </h1>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white/90">
-           {isOrder ? 'Rental Order' : 'Invoice'}
-        </h1>
         <div className="flex gap-2 ml-2">
-           <button className="bg-green-500/10 hover:bg-green-500/20 p-1.5 rounded border border-green-500/30 text-green-500 transition-colors"><Check className="h-4 w-4"/></button>
-           <button className="bg-red-500/10 hover:bg-red-500/20 p-1.5 rounded border border-red-500/30 text-red-500 transition-colors"><XIcon className="h-4 w-4"/></button>
+          <button className="bg-green-500/10 hover:bg-green-500/20 p-1.5 rounded border border-green-500/30 text-green-500 transition-colors"><Check className="h-4 w-4" /></button>
+          <button className="bg-red-500/10 hover:bg-red-500/20 p-1.5 rounded border border-red-500/30 text-red-500 transition-colors"><XIcon className="h-4 w-4" /></button>
         </div>
       </div>
 
       <div className="bg-[#1E1E1E] border border-gray-800 rounded-xl p-8 relative shadow-2xl">
-        
+
         {/* --- ACTION BAR --- */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-800">
+          {/* ACTION BUTTONS */}
           <div className="flex gap-3">
-            <button 
-              onClick={() => handleSave()} 
-              disabled={saving}
-              className="px-5 py-2 bg-[#E879F9] hover:bg-[#D946EF] text-black rounded-lg font-bold text-sm shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
+            {/* Send Button */}
+            {isOrder && (
+              <button
+                onClick={handleSendQuotation}
+                disabled={isSending || !formData.customer_id || lines.length === 0}
+                className="px-5 py-2 bg-[#E879F9] hover:bg-[#D946EF] text-black rounded-lg font-bold text-sm shadow-lg shadow-purple-900/20 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSending && <Loader2 className="animate-spin h-4 w-4" />}
+                Send
+              </button>
+            )}
+
+            {/* Confirm Button */}
+            <button
+              onClick={handleConfirmOrder}
+              disabled={isConfirming || isNew}
+              className="px-5 py-2 bg-transparent border border-gray-600 hover:border-gray-400 hover:bg-gray-800 rounded-lg text-sm font-medium transition-all text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : 'Save'}
-            </button>
-            <button 
-              onClick={handleConfirm}
-              className="px-5 py-2 bg-transparent border border-gray-600 hover:border-gray-400 hover:bg-gray-800 rounded-lg text-sm font-medium transition-all text-gray-300"
-            >
+              {isConfirming && <Loader2 className="animate-spin h-4 w-4" />}
               Confirm
             </button>
-            
+
+            {/* Print Button */}
+            <button
+              onClick={handlePrint}
+              disabled={isPrinting || isNew}
+              className="px-5 py-2 bg-transparent border border-gray-600 hover:border-gray-400 hover:bg-gray-800 rounded-lg text-sm font-medium transition-all text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isPrinting && <Loader2 className="h-4 w-4" />}
+              Print
+            </button>
+
+            {/* Create Invoice Button */}
             {isOrder && !isNew && (
-              <button 
+              <button
                 onClick={handleCreateInvoice}
-                disabled={isCreatingInvoice}
-                className={`ml-4 px-5 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg transition-all
-                  ${status === 'confirmed' 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer hover:scale-105' 
+                disabled={isCreatingInvoice || status !== 'confirmed'}
+                className={`px-5 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg transition-all
+                  ${status === 'confirmed'
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer hover:scale-105'
                     : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
               >
-                {isCreatingInvoice && <Loader2 className="h-4 w-4 animate-spin"/>}
+                {isCreatingInvoice && <Loader2 className="h-4 w-4 animate-spin" />}
                 Create Invoice
               </button>
             )}
@@ -346,47 +542,50 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
           {/* STATUS PILLS */}
           <div className="flex bg-[#121212] rounded-lg p-1 border border-gray-700">
             {isOrder ? (
-               ['Quotation', 'confirmed', 'Sale Order'].map(s => (
-                 <div key={s} className={`px-4 py-1.5 rounded-md text-xs font-medium uppercase ${status === s ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>{s}</div>
-               ))
+              ['quotation', 'quotation_sent', 'confirmed'].map(s => {
+                const label = s === 'quotation' ? 'Quotation' : s === 'quotation_sent' ? 'Quotation Sent' : 'Confirmed';
+                return (
+                  <div key={s} className={`px-4 py-1.5 rounded-md text-xs font-medium ${status === s ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>{label}</div>
+                );
+              })
             ) : (
-               ['Draft', 'Posted'].map(s => (
-                 <div key={s} className={`px-4 py-1.5 rounded-md text-xs font-medium uppercase ${status === s ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>{s}</div>
-               ))
+              ['draft', 'posted'].map(s => (
+                <div key={s} className={`px-4 py-1.5 rounded-md text-xs font-medium uppercase ${status === s ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>{s}</div>
+              ))
             )}
           </div>
         </div>
 
         {/* --- FORM FIELDS --- */}
         <h2 className="text-4xl font-bold mb-10 text-white tracking-wide">{formData.displayId}</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6 mb-12">
           {/* Left: Customer */}
           <div className="space-y-6">
             <div className="flex items-center group">
               <label className="w-32 text-gray-400 text-sm font-medium">Customer</label>
               <div className="flex-1 relative">
-                <select 
+                <select
                   value={formData.customer_id}
-                  onChange={(e) => setFormData({...formData, customer_id: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
                   className="w-full bg-transparent border-b border-gray-700 focus:border-purple-500 outline-none py-1 text-sm text-white appearance-none"
                 >
                   <option value="" className="bg-[#1E1E1E]">Select Customer...</option>
                   {customers.map(c => (
-                    <option key={c.id} value={c.id} className="bg-[#1E1E1E]">{c.full_name}</option>
+                    <option key={c.id} value={c.id} className="bg-[#1E1E1E]">{c.name}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-0 top-1.5 h-4 w-4 text-gray-500 pointer-events-none"/>
+                <ChevronDown className="absolute right-0 top-1.5 h-4 w-4 text-gray-500 pointer-events-none" />
               </div>
             </div>
             {/* Address fields placeholders */}
             <div className="flex items-center group">
-               <label className="w-32 text-gray-400 text-sm font-medium">Invoice Addr</label>
-               <input 
-                 value={formData.invoiceAddress}
-                 onChange={e => setFormData({...formData, invoiceAddress: e.target.value})}
-                 className="flex-1 bg-transparent border-b border-gray-700 focus:border-purple-500 outline-none py-1 text-sm text-white"
-               />
+              <label className="w-32 text-gray-400 text-sm font-medium">Invoice Addr</label>
+              <input
+                value={formData.invoiceAddress}
+                onChange={e => setFormData({ ...formData, invoiceAddress: e.target.value })}
+                className="flex-1 bg-transparent border-b border-gray-700 focus:border-purple-500 outline-none py-1 text-sm text-white"
+              />
             </div>
           </div>
 
@@ -395,22 +594,22 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
             <div className="flex items-center group">
               <label className="w-32 text-gray-400 text-sm font-medium">Rental Period</label>
               <div className="flex-1 flex gap-4 items-center">
-                 <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="bg-transparent border-b border-gray-700 text-white text-sm outline-none"/>
-                 <span className="text-gray-600">→</span>
-                 <input type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} className="bg-transparent border-b border-gray-700 text-white text-sm outline-none"/>
+                <input type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} className="bg-transparent border-b border-gray-700 text-white text-sm outline-none" />
+                <span className="text-gray-600">→</span>
+                <input type="date" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} className="bg-transparent border-b border-gray-700 text-white text-sm outline-none" />
               </div>
             </div>
             <div className="flex items-center group">
-               <label className="w-32 text-gray-400 text-sm font-medium">{isOrder ? 'Order Date' : 'Invoice Date'}</label>
-               <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="flex-1 bg-transparent border-b border-gray-700 text-white text-sm outline-none"/>
+              <label className="w-32 text-gray-400 text-sm font-medium">{isOrder ? 'Order Date' : 'Invoice Date'}</label>
+              <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="flex-1 bg-transparent border-b border-gray-700 text-white text-sm outline-none" />
             </div>
           </div>
         </div>
 
         {/* --- TABS --- */}
         <div className="mb-0 border-b border-gray-800 flex gap-8">
-           <button className="text-sm font-bold text-white border-b-2 border-white pb-3 px-1">{isOrder ? 'Order Lines' : 'Invoice Lines'}</button>
-           <button className="text-sm font-medium text-gray-500 pb-3 px-1">Other Info</button>
+          <button className="text-sm font-bold text-white border-b-2 border-white pb-3 px-1">{isOrder ? 'Order Lines' : 'Invoice Lines'}</button>
+          <button className="text-sm font-medium text-gray-500 pb-3 px-1">Other Info</button>
         </div>
 
         {/* --- LINES TABLE --- */}
@@ -430,7 +629,7 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
               {lines.map((line) => (
                 <tr key={line.id} className="hover:bg-white/[0.02]">
                   <td className="py-3 pr-4">
-                    <input 
+                    <input
                       list={`products-${line.id}`}
                       value={line.product}
                       onChange={(e) => updateLine(line.id, 'product', e.target.value)}
@@ -438,32 +637,32 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
                       placeholder="Search Product..."
                     />
                     <datalist id={`products-${line.id}`}>
-                        {products.map(p => <option key={p.id} value={p.name} />)}
+                      {products.map(p => <option key={p.id} value={p.name} />)}
                     </datalist>
                   </td>
                   <td className="py-3 px-2">
-                    <input 
-                      type="number" 
-                      value={line.quantity} 
-                      onChange={(e) => updateLine(line.id, 'quantity', parseFloat(e.target.value))} 
+                    <input
+                      type="number"
+                      value={line.quantity}
+                      onChange={(e) => updateLine(line.id, 'quantity', parseFloat(e.target.value))}
                       className="w-16 bg-transparent outline-none text-white text-right"
                     />
                   </td>
                   <td className="py-3 px-2 text-gray-400">{line.unit}</td>
                   <td className="py-3 px-2">
-                     <input 
-                       type="number" 
-                       value={line.unitPrice} 
-                       onChange={(e) => updateLine(line.id, 'unitPrice', parseFloat(e.target.value))} 
-                       className="w-20 bg-transparent outline-none text-white"
-                     />
+                    <input
+                      type="number"
+                      value={line.unitPrice}
+                      onChange={(e) => updateLine(line.id, 'unitPrice', parseFloat(e.target.value))}
+                      className="w-20 bg-transparent outline-none text-white"
+                    />
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-white">
                     {line.amount.toLocaleString()}
                   </td>
                   <td className="py-3 text-center">
                     <button onClick={() => handleRemoveLine(line.id)} className="text-gray-600 hover:text-red-400">
-                        <Trash2 className="h-4 w-4"/>
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
@@ -472,22 +671,59 @@ export default function DocumentForm({ mode, documentId }: DocumentFormProps) {
           </table>
         </div>
 
-        <button onClick={handleAddLine} className="text-[#E879F9] text-sm font-medium flex items-center gap-1 mb-6">
-            <Plus className="h-3 w-3"/> Add Product
-        </button>
+        {/* --- FOOTER SECTION --- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mt-6 border-t border-gray-800 pt-6 gap-8">
 
-        {/* --- FOOTER TOTALS --- */}
-        <div className="flex justify-end border-t border-gray-800 pt-4">
-            <div className="w-1/3 text-right space-y-2">
-                <div className="flex justify-between text-sm text-gray-400">
-                    <span>Untaxed Amount:</span>
-                    <span className="font-mono">Rs {calculateTotal().toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold text-white border-t border-gray-700 pt-2 mt-2">
-                    <span>Total:</span>
-                    <span className="font-mono text-[#E879F9]">Rs {calculateTotal().toLocaleString()}</span>
-                </div>
+          {/* Left: Actions & Terms */}
+          <div className="w-full md:w-1/2 space-y-6">
+            <div className="flex gap-6 text-sm">
+              <button
+                onClick={handleAddLine}
+                className="text-[#3b82f6] hover:text-blue-400 font-medium transition-colors"
+                disabled={!isOrder}
+              >
+                Add a Product
+              </button>
+              <button
+                className="text-[#3b82f6] hover:text-blue-400 font-medium transition-colors"
+              >
+                Add a note
+              </button>
             </div>
+
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="font-medium text-white">Terms & Conditions:</span>
+              <a href="#" className="text-[#3b82f6] hover:underline">https://xxxxx.xxx.xxx/terms</a>
+            </div>
+          </div>
+
+          {/* Right: Calcs & Buttons */}
+          <div className="w-full md:w-auto space-y-4">
+
+            {/* Promo Buttons */}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button className="px-4 py-2 rounded-lg border border-gray-600 text-gray-300 text-xs font-semibold hover:border-gray-400 hover:text-white transition-all">
+                Coupon Code
+              </button>
+              <button className="px-4 py-2 rounded-lg border border-gray-600 text-gray-300 text-xs font-semibold hover:border-gray-400 hover:text-white transition-all">
+                Discount
+              </button>
+              <button className="px-4 py-2 rounded-lg border border-gray-600 text-gray-300 text-xs font-semibold hover:border-gray-400 hover:text-white transition-all">
+                Add Shipping
+              </button>
+            </div>
+
+            {/* Totals */}
+            <div className="text-right space-y-1 pt-2">
+              <div className="text-sm text-gray-400 font-medium">
+                Untaxed Amount: <span className="text-white ml-2">Rs {calculateTotal().toLocaleString()}</span>
+              </div>
+              <div className="text-xl font-bold text-white border-t border-gray-700 pt-2 mt-2">
+                Total: <span className="ml-2">Rs {calculateTotal().toLocaleString()}</span>
+              </div>
+            </div>
+
+          </div>
         </div>
 
       </div>

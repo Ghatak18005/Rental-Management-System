@@ -92,7 +92,7 @@ export default function ProductForm({
       }
     } catch (error) {
       console.error("Error loading pricing:", error);
-    }
+    } 
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -130,16 +130,24 @@ export default function CustomerDashboard() {
     setAddingToCart(true);
 
     try {
-      let { data: order } = await supabase
+      console.log('🛒 Adding to cart - User:', user.id);
+      console.log('🛒 Product:', selectedProduct.id, selectedProduct.name);
+      console.log('🛒 Dates:', startDate, 'to', endDate);
+
+      // Check for existing draft order
+      let { data: order, error: orderSelectError } = await supabase
         .from('rental_orders')
         .select('id')
         .eq('customer_id', user.id)
         .eq('status', 'draft')
         .maybeSingle();
 
+      console.log('🛒 Existing order check:', order);
+
       let orderId = order?.id;
 
       if (!orderId) {
+        console.log('🛒 Creating new draft order...');
         const { data: newOrder, error: orderError } = await supabase
           .from('rental_orders')
           .insert({
@@ -151,10 +159,15 @@ export default function CustomerDashboard() {
           .select()
           .single();
 
-        if (orderError) throw orderError;
+        if (orderError) {
+          console.error('🛒 Order creation error:', orderError);
+          throw orderError;
+        }
         orderId = newOrder.id;
+        console.log('✅ Created new order:', orderId);
       }
 
+      console.log('🛒 Adding item to order:', orderId);
       const { error: itemError } = await supabase
         .from('rental_order_items')
         .insert({
@@ -165,15 +178,19 @@ export default function CustomerDashboard() {
           quantity: 1
         });
 
-      if (itemError) throw itemError;
+      if (itemError) {
+        console.error('🛒 Item insertion error:', itemError);
+        throw itemError;
+      }
 
+      console.log('✅ Item added successfully');
       toast.success("Added to Cart!");
       await fetchCartCount(user.id);
       setSelectedProduct(null); 
 
     } catch (error: any) {
-      console.error(error);
-      toast.error("Failed to add to cart");
+      console.error('❌ Add to cart error:', error?.message || error);
+      toast.error("Failed to add to cart: " + (error?.message || error));
     } finally {
       setAddingToCart(false);
     }

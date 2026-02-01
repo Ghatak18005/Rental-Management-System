@@ -1,211 +1,375 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { 
-  Search, Heart, ShoppingCart, User, Trash2, Heart as HeartOutline,
-  ChevronLeft, Calendar, CreditCard, X, Loader2
-} from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { Trash2, Calendar, ShoppingCart, ArrowRight, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface CartItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  price: number;
+  order_id: string;
+}
 
 export default function CartPage() {
   const router = useRouter();
-  const supabase = createClient();
-  
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
+
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cartItems, setCartItems] = useState<any[]>([]);
-  const [order, setOrder] = useState<any>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [draftOrderId, setDraftOrderId] = useState<string | null>(null);
   
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Dates for rental
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  // --- FETCH CART FROM DB ---
-  useEffect(() => {
-    const fetchCart = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // Fetch cart data
+  const fetchCartData = async (currentUserId: string) => {
+    try {
+      console.log('🔄 FETCHING CART for user:', currentUserId);
 
-      const { data: orderData } = await supabase
+      // Get draft order
+      const { data: draftOrder, error: orderError } = await supabase
         .from('rental_orders')
         .select('*')
-        .eq('customer_id', user.id)
+        .eq('customer_id', currentUserId)
         .eq('status', 'draft')
-        .single();
+        .maybeSingle();
 
-      if (orderData) {
-        setOrder(orderData);
-        const { data: items } = await supabase
-          .from('rental_order_items')
-          .select('*')
-          .eq('order_id', orderData.id);
-        setCartItems(items || []);
+      if (orderError) {
+        console.error('❌ Order error:', orderError);
+        throw orderError;
       }
+
+      if (!draftOrder) {
+        console.log('📌 No draft order exists');
+        setCartItems([]);
+        setDraftOrderId(null);
+        setStartDate('');
+        setEndDate('');
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ Draft order found:', draftOrder.id);
+      setDraftOrderId(draftOrder.id);
+
+      // Get items from this order
+      const { data: items, error: itemsError } = await supabase
+        .from('rental_order_items')
+        .select('*')
+        .eq('order_id', draftOrder.id);
+
+      if (itemsError) {
+        console.error('❌ Items error:', itemsError);
+        throw itemsError;
+      }
+
+      console.log(`📦 Found ${items?.length || 0} items:`, items);
+      setCartItems(items || []);
+
+      // Set dates
+      if (draftOrder.pickup_date) {
+        setStartDate(new Date(draftOrder.pickup_date).toISOString().split('T')[0]);
+      }
+      if (draftOrder.return_date) {
+        setEndDate(new Date(draftOrder.return_date).toISOString().split('T')[0]);
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error fetching cart:', error?.message || error);
+      toast.error('Failed to load cart');
+      setCartItems([]);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  // Initial load - get user and fetch cart
+  useEffect(() => {
+    const initCart = async () => {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          router.push('/login');
+          return;
+        }
+
+        console.log('👤 User authenticated:', user.id);
+        setUserId(user.id);
+        await fetchCartData(user.id);
+      } catch (error) {
+        console.error('Init error:', error);
+      }
     };
 
-    fetchCart();
-  }, [supabase]);
+    initCart();
+  }, []);
 
-  // Calculations
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const finalTotal = subtotal;
+  // Set up real-time subscription to cart items
+  useEffect(() => {
+    if (!draftOrderId) return;
 
-  const removeFromCart = async (itemId: string) => {
-    const { error } = await supabase.from('rental_order_items').delete().eq('id', itemId);
-    if (!error) {
-      setCartItems(prev => prev.filter(i => i.id !== itemId));
-      toast.success("Item removed");
+    console.log('🔗 Setting up real-time subscription for order:', draftOrderId);
+
+    // Subscribe to rental_order_items changes
+    const subscription = supabase
+      .channel(`order-items-${draftOrderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rental_order_items',
+          filter: `order_id=eq.${draftOrderId}`,
+        },
+        (payload) => {
+          console.log('🔔 Real-time update received:', payload.eventType, payload.new);
+          if (userId) {
+            fetchCartData(userId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔗 Unsubscribing from real-time');
+      supabase.removeChannel(subscription);
+    };
+  }, [draftOrderId, userId]);
+
+  // Listen for page visibility to refresh cart when coming back to tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && userId) {
+        console.log('👁️ Page became visible - refreshing cart');
+        fetchCartData(userId);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [userId]);
+
+  // --- CALCULATIONS ---
+  const calculateDays = () => {
+    if (!startDate || !endDate) return 1;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 1;
+  };
+
+  const calculateTotal = () => {
+    const days = calculateDays();
+    return cartItems.reduce((total, item) => {
+      return total + (item.price * item.quantity * days);
+    }, 0);
+  };
+
+  // --- ACTIONS ---
+  const handleRemoveItem = async (id: string) => {
+    try {
+      const { error } = await supabase.from('rental_order_items').delete().eq('id', id);
+      if (error) throw error;
+      setCartItems((prev) => prev.filter((item) => item.id !== id));
+      toast.success('Item removed');
+    } catch (err) {
+      toast.error('Failed to remove item');
     }
   };
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    
-    if (order) {
-       await supabase.from('rental_orders')
-        .update({ status: 'confirmed', total_amount: finalTotal })
-        .eq('id', order.id);
+  const handleCheckout = async () => {
+    if (!startDate || !endDate) {
+      toast.error('Please select rental dates');
+      return;
+    }
+    if (cartItems.length === 0) {
+      toast.error('Your cart is empty');
+      return;
     }
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsProcessing(false);
-    setIsCheckoutOpen(false);
-    setCartItems([]);
-    toast.success("Payment Successful! Order Confirmed.");
-    router.push('/dashboard');
-  };
+    setCheckoutLoading(true);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-      </div>
-    );
+    try {
+      if (!draftOrderId) throw new Error('No draft order found');
+
+      const totalAmount = calculateTotal();
+      console.log('💳 Processing checkout - Total:', totalAmount);
+
+      // Update the draft order status and dates
+      const { error: updateError } = await supabase
+        .from('rental_orders')
+        .update({
+          total_amount: totalAmount,
+          status: 'Quotation',
+          pickup_date: new Date(startDate).toISOString(),
+          return_date: new Date(endDate).toISOString(),
+        })
+        .eq('id', draftOrderId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Order updated successfully');
+      toast.success('Quote Request Created! Proceeding to payment...');
+
+      setTimeout(() => {
+        router.push(`/dashboard/checkout?orderId=${draftOrderId}`);
+      }, 500);
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      toast.error('Checkout failed: ' + (err?.message || err));
+    } finally {
+      setCheckoutLoading(false);
+    }
   }
 
+  if (loading)
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-purple-600 h-8 w-8" />
+      </div>
+    );
+
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-sans selection:bg-purple-500 selection:text-white">
-      
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#121212] border-b border-gray-800 px-6 py-4">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-12">
-            <div className="font-bold text-lg tracking-wide cursor-pointer" onClick={() => router.push('/dashboard')}>RentFlow</div>
-          </div>
-          <div className="flex items-center space-x-6">
-            <div className="relative">
-              <ShoppingCart className="h-6 w-6 text-white" />
-              <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full">
-                {cartItems.length}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-12">
-        <div className="text-sm text-gray-400 mb-8 flex items-center">
-          <span className="text-white font-semibold underline decoration-purple-500 underline-offset-4">Add to Cart</span> 
-          <span className="mx-3 text-gray-600">{'>'}</span> 
-          <span>Address</span> 
+    <div className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-900">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <ShoppingCart className="h-8 w-8 text-purple-600" />
+            Your Cart
+          </h1>
+          <button
+            onClick={() => userId && fetchCartData(userId)}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+          >
+            🔄 Refresh
+          </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-16">
-          <div className="flex-[2]">
-            <h2 className="text-xl font-bold mb-8 flex items-center">
-              Order Summary
-              <span className="ml-auto text-sm font-normal text-gray-400">Rs {subtotal.toFixed(2)}</span>
-            </h2>
-            
-            {cartItems.length === 0 ? (
-              <div className="text-center py-20 bg-[#1E1E1E] rounded-xl border border-gray-800 text-gray-500">
-                Your cart is empty.
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="flex gap-6 pb-8 border-b border-gray-800">
-                    <div className="w-24 h-24 bg-[#1E1E1E] rounded-xl overflow-hidden border border-gray-800">
-                      <img src={item.image_url || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" />
+        {cartItems.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl shadow-sm">
+            <p className="text-gray-500 text-lg mb-6">Your cart is empty.</p>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Browse Products
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* LEFT: CART ITEMS */}
+            <div className="lg:col-span-2 space-y-4">
+              {cartItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-6 border border-gray-100"
+                >
+                  <div className="h-20 w-20 bg-gray-200 rounded-lg flex-shrink-0 flex items-center justify-center">
+                    <span className="text-sm text-gray-500">Product</span>
+                  </div>
+
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg">{item.product_name}</h3>
+                    <p className="text-gray-500 text-sm">Unit Price: ₹{item.price}/day</p>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400 uppercase font-bold">Qty</p>
+                      <p className="font-medium">{item.quantity}</p>
                     </div>
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <h3 className="font-semibold text-lg text-gray-200">{item.product_name}</h3>
-                        <p className="text-sm font-mono text-gray-400 mt-1">Rs {item.price}</p>
-                        <p className="text-xs text-gray-500 mt-2 flex items-center">
-                          <Calendar className="w-3 h-3 mr-2" />
-                          {order ? `${new Date(order.pickup_date).toLocaleDateString()} - ${new Date(order.return_date).toLocaleDateString()}` : 'Dates not set'}
-                        </p>
-                      </div>
-                      <button onClick={() => removeFromCart(item.id)} className="hover:text-red-400 flex items-center transition-colors text-xs text-gray-500 mt-2">
-                        <Trash2 className="w-3 h-3 mr-1.5" /> Remove
-                      </button>
+                    <button
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* RIGHT: SUMMARY */}
+            <div className="lg:col-span-1">
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 sticky top-6">
+                <h2 className="text-xl font-bold mb-6">Rental Summary</h2>
+
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1">
-            <div className="bg-[#1E1E1E] p-8 rounded-2xl border border-gray-800 sticky top-28 shadow-xl">
-              <h3 className="font-semibold mb-6 text-gray-200">Rental Period</h3>
-              <div className="space-y-4 mb-10">
-                 <div className="bg-[#121212] px-4 py-3 rounded-lg border border-gray-700 text-sm text-gray-300">
-                    <span className="text-xs text-gray-500 block uppercase mb-1">Pickup</span>
-                    {order ? new Date(order.pickup_date).toLocaleString() : '-'}
-                 </div>
-                 <div className="bg-[#121212] px-4 py-3 rounded-lg border border-gray-700 text-sm text-gray-300">
-                    <span className="text-xs text-gray-500 block uppercase mb-1">Return</span>
-                    {order ? new Date(order.return_date).toLocaleString() : '-'}
-                 </div>
-              </div>
-
-              <div className="space-y-4 text-sm mb-8 border-b border-gray-700 pb-8">
-                <div className="flex justify-between font-bold text-xl text-white pt-2">
-                  <span>Total</span>
-                  <span>Rs {finalTotal.toFixed(2)}</span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Date
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <button className="w-full bg-[#064e18] hover:bg-[#086320] text-white font-bold py-3.5 rounded-lg border border-green-800">
-                  Apply Coupon
-                </button>
-                <button 
-                  onClick={() => setIsCheckoutOpen(true)}
-                  disabled={cartItems.length === 0}
-                  className="w-full bg-[#121212] hover:bg-black border border-gray-600 text-white font-bold py-3.5 rounded-lg disabled:opacity-50"
+                <div className="space-y-2 text-sm text-gray-600 border-t border-gray-100 pt-4 mb-6">
+                  <div className="flex justify-between">
+                    <span>Total Items</span>
+                    <span>{cartItems.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Rental Duration</span>
+                    <span>{calculateDays()} Days</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-100 mt-2">
+                    <span>Estimated Total</span>
+                    <span>₹{calculateTotal().toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCheckout}
+                  disabled={checkoutLoading || cartItems.length === 0}
+                  className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Checkout
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" /> Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-5 w-5" /> Request Quote
+                    </>
+                  )}
                 </button>
               </div>
-
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {isCheckoutOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-           <form onSubmit={handlePayment} className="bg-[#1E1E1E] w-full max-w-3xl rounded-xl border border-gray-800 p-8 relative">
-              <button type="button" onClick={() => setIsCheckoutOpen(false)} className="absolute top-4 right-4 text-gray-400"><X /></button>
-              <h2 className="text-xl font-bold mb-6">Express Checkout</h2>
-              <div className="space-y-4">
-                 <input required type="text" placeholder="Card Number" className="w-full bg-[#121212] border border-gray-700 rounded-lg p-3 text-white" />
-                 <div className="flex justify-end">
-                    <button type="submit" className="bg-blue-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-800">
-                       {isProcessing ? 'Processing...' : 'Pay Now'}
-                    </button>
-                 </div>
-              </div>
-           </form>
-        </div>
-      )}
-
     </div>
   );
 }

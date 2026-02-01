@@ -2,74 +2,53 @@
 
 @layer base {
   :root {
-    /* LIGHT THEME */
-    --background: 210 40% 98%;      /* Very light blue-grey */
-    --foreground: 222 47% 11%;      /* Deep Slate */
+    /* LIGHT THEME - Slate & Royal Blue */
+    --background: 210 40% 98%;      
+    --foreground: 222 47% 11%;      
     
-    --primary: 221 83% 53%;         /* Royal Blue */
+    --primary: 221 83% 53%;         
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 160 84% 39%;       /* Emerald Green */
+    --secondary: 160 84% 39%;       
     --secondary-foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;              /* Pure White */
+    --card: 0 0% 100%;              
     --card-foreground: 222 47% 11%;
 
-    --accent: 210 40% 96.1%;        /* Light Grey for hovers */
+    --accent: 210 40% 96.1%;        
     --accent-foreground: 222 47% 11%;
     
-    --border: 214 32% 91%;          /* Light Grey Border */
+    --border: 214 32% 91%;          
     --radius: 0.75rem;
   }
 
   .dark {
-    /* DARK THEME */
-    --background: 222 47% 11%;      /* Deep Navy */
-    --foreground: 210 40% 98%;      /* Off White */
+    /* DARK THEME - Updated to Midnight/Purple from your example */
+    --background: 240 10% 4%;       /* Near black #121212 equivalent */
+    --foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;         /* Electric Blue */
-    --primary-foreground: 222 47% 11%;
+    --primary: 271 91% 65%;         /* Purple-600 equivalent */
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 160 84% 39%;       /* Emerald stays similar */
+    --secondary: 160 84% 39%;       
     --secondary-foreground: 210 40% 98%;
 
-    --card: 217 33% 17%;            /* Lighter Navy for cards */
+    --card: 240 6% 12%;             /* #1E1E1E equivalent */
     --card-foreground: 210 40% 98%;
 
-    --accent: 217 33% 17%;          /* Card color for hovers */
+    --accent: 240 5% 18%;           /* #2D2D2D equivalent */
     --accent-foreground: 210 40% 98%;
     
-    --border: 217 33% 20%;          /* Dark Navy Border */
+    --border: 240 5% 15%;           /* Gray-800 equivalent */
   }
 }
 
-@theme {
-  /* Link Tailwind classes to our CSS variables */
-  --color-background: border-box var(--background); /* border-box is a hack for v4 alpha, usually just var(--background) works in RC */
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-border: var(--border);
-  
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
-}
-
-/* Global Reset */
 @layer base {
   * {
-    border-color: var(--border); /* Use CSS variable directly instead of @apply */
-    outline-color: var(--border);
+    border-color: hsl(var(--border));
   }
   body {
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }

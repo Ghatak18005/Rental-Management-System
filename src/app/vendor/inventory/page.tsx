@@ -13,6 +13,8 @@ import {
   Package,
   DollarSign,
   Hash,
+  AlertCircle,
+  Box
 } from "lucide-react";
 import toast from "react-hot-toast";
 import ProductForm from "@/components/vendor/ProductForm";
@@ -105,193 +107,214 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background flex items-center justify-center text-primary">
+        <Loader2 className="h-10 w-10 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Inventory Management
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Manage your product catalog and pricing
-          </p>
+    <div className="min-h-screen bg-background text-foreground font-sans transition-colors duration-300 relative">
+      
+      {/* ================= BACKGROUND EFFECTS ================= */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[10%] left-[5%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[10%] right-[5%] w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div className="relative z-10 max-w-[1600px] mx-auto p-6 md:p-8 space-y-8">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
+            <p className="mt-1 text-foreground/50 text-sm">
+              Manage your catalog, stock levels, and product visibility.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              setShowForm(true);
+            }}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 font-bold text-sm"
+          >
+            <Plus className="h-5 w-5" />
+            Add New Product
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setEditingProduct(null);
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Plus className="h-5 w-5" />
-          Add Product
-        </button>
-      </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search products by name or SKU..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:outline-none"
-        />
-      </div>
+        {/* Search & Filter Bar */}
+        <div className="relative max-w-lg">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-foreground/40" />
+          <input
+            type="text"
+            placeholder="Search by name or SKU..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 bg-card border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-foreground/30 text-sm shadow-sm"
+          />
+        </div>
 
-      {/* Product Form Modal */}
-      {showForm && (
-        <ProductForm
-          product={editingProduct}
-          onClose={() => {
-            setShowForm(false);
-            setEditingProduct(null);
-          }}
-          onSuccess={() => {
-            setShowForm(false);
-            setEditingProduct(null);
-            fetchProducts();
-          }}
-        />
-      )}
+        {/* Product Form Modal */}
+        {showForm && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+             <div className="bg-card w-full max-w-2xl rounded-3xl border border-border shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto scrollbar-hide">
+                <ProductForm
+                  product={editingProduct}
+                  onClose={() => {
+                    setShowForm(false);
+                    setEditingProduct(null);
+                  }}
+                  onSuccess={() => {
+                    setShowForm(false);
+                    setEditingProduct(null);
+                    fetchProducts();
+                  }}
+                />
+             </div>
+          </div>
+        )}
 
-      {/* Products Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  SKU
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Stock
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Cost Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredProducts.length === 0 ? (
+        {/* Products Table Card */}
+        <div className="bg-card border border-border rounded-3xl shadow-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-accent/30">
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">
-                      {searchQuery
-                        ? "No products found matching your search"
-                        : "No products yet. Add your first product!"}
-                    </p>
-                  </td>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Product</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">SKU</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Stock</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Price</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Actions</th>
                 </tr>
-              ) : (
-                filteredProducts.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {product.name}
+              </thead>
+              <tbody className="divide-y divide-border bg-card">
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 bg-accent/50 rounded-full flex items-center justify-center mb-4">
+                           <Package className="h-8 w-8 text-foreground/30" />
                         </div>
-                        {product.description && (
-                          <div className="text-sm text-gray-500 truncate max-w-xs">
-                            {product.description}
-                          </div>
+                        <p className="text-foreground/60 font-medium">
+                          {searchQuery
+                            ? "No matching products found."
+                            : "Your inventory is empty."}
+                        </p>
+                        {!searchQuery && (
+                          <p className="text-xs text-foreground/40 mt-1">Start by adding your first item.</p>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Hash className="h-4 w-4" />
-                        {product.sku || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          (product.quantity_on_hand || 0) > 0
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
-                      >
-                        {product.quantity_on_hand || 0} units
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                        <DollarSign className="h-4 w-4" />
-                        ₹{product.cost_price?.toFixed(2) || "0.00"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleTogglePublish(product)}
-                        className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                          product.is_published
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                        }`}
-                      >
-                        {product.is_published ? (
-                          <>
-                            <Eye className="h-3 w-3" />
-                            Published
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="h-3 w-3" />
-                            Draft
-                          </>
-                        )}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingProduct(product);
-                            setShowForm(true);
-                          }}
-                          className="text-primary hover:text-primary/80 p-2 hover:bg-primary/10 rounded transition-colors"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="hover:bg-accent/20 transition-colors group"
+                    >
+                      {/* Product Name & Desc */}
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                            {product.name}
+                          </div>
+                          {product.description && (
+                            <div className="text-xs text-foreground/50 truncate max-w-[200px] mt-0.5">
+                              {product.description}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* SKU */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-xs text-foreground/60 bg-accent/30 px-2 py-1 rounded w-fit border border-border">
+                          <Hash className="h-3 w-3 opacity-50" />
+                          <span className="font-mono">{product.sku || "N/A"}</span>
+                        </div>
+                      </td>
+
+                      {/* Stock Badge */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full border ${
+                            (product.quantity_on_hand || 0) > 0
+                              ? "bg-green-500/10 text-green-600 border-green-500/20"
+                              : "bg-red-500/10 text-red-600 border-red-500/20"
+                          }`}
+                        >
+                          {(product.quantity_on_hand || 0) > 0 ? (
+                             <Box className="w-3 h-3" />
+                          ) : (
+                             <AlertCircle className="w-3 h-3" />
+                          )}
+                          {product.quantity_on_hand || 0} units
+                        </span>
+                      </td>
+
+                      {/* Cost Price */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1 text-sm font-medium text-foreground">
+                          <DollarSign className="h-3.5 w-3.5 text-foreground/40" />
+                          {product.cost_price?.toFixed(2) || "0.00"}
+                        </div>
+                      </td>
+
+                      {/* Status Toggle */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleTogglePublish(product)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                            product.is_published
+                              ? "bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/20"
+                              : "bg-foreground/5 text-foreground/50 border-border hover:bg-foreground/10"
+                          }`}
+                        >
+                          {product.is_published ? (
+                            <>
+                              <Eye className="h-3 w-3" /> Published
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="h-3 w-3" /> Draft
+                            </>
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingProduct(product);
+                              setShowForm(true);
+                            }}
+                            className="p-2 text-foreground/50 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            title="Edit Product"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 text-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

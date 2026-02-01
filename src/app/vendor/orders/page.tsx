@@ -11,6 +11,8 @@ import {
   XCircle,
   Loader2,
   Filter,
+  Calendar,
+  IndianRupee // Using this or standard Dollar depending on your pref
 } from "lucide-react";
 import toast from "react-hot-toast";
 import OrderActions from "@/components/vendor/OrderActions";
@@ -42,9 +44,6 @@ export default function OrdersPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch orders for products owned by this vendor
-      // Note: This assumes there's a way to link orders to vendor products
-      // You may need an order_items table or similar
       const { data, error } = await supabase
         .from("rental_orders")
         .select(`
@@ -55,7 +54,6 @@ export default function OrdersPage() {
 
       if (error) throw error;
 
-      // For now, we'll show all orders. In production, filter by vendor's products
       const ordersWithCustomer = (data || []).map((order: any) => ({
         ...order,
         customer: order.users,
@@ -81,20 +79,21 @@ export default function OrdersPage() {
     return true;
   });
 
+  // --- THEMED STATUS BADGES ---
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
+    const statusConfig: Record<string, { colorClass: string; icon: any; label: string }> = {
       draft: {
-        color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+        colorClass: "bg-gray-500/10 text-gray-500 border-gray-500/20",
         icon: FileText,
         label: "Quotation",
       },
       confirmed: {
-        color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        colorClass: "bg-blue-500/10 text-blue-600 border-blue-500/20",
         icon: CheckCircle,
         label: "Confirmed",
       },
       cancelled: {
-        color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+        colorClass: "bg-red-500/10 text-red-600 border-red-500/20",
         icon: XCircle,
         label: "Cancelled",
       },
@@ -104,9 +103,7 @@ export default function OrdersPage() {
     const Icon = config.icon;
 
     return (
-      <span
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${config.color}`}
-      >
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${config.colorClass}`}>
         <Icon className="h-3 w-3" />
         {config.label}
       </span>
@@ -114,21 +111,21 @@ export default function OrdersPage() {
   };
 
   const getPickupStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { color: string; label: string }> = {
+    const statusConfig: Record<string, { colorClass: string; label: string }> = {
       pending: {
-        color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+        colorClass: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
         label: "Pending",
       },
       picked_up: {
-        color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        colorClass: "bg-purple-500/10 text-purple-600 border-purple-500/20",
         label: "With Customer",
       },
       returned: {
-        color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        colorClass: "bg-green-500/10 text-green-600 border-green-500/20",
         label: "Returned",
       },
       late: {
-        color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+        colorClass: "bg-red-500/10 text-red-600 border-red-500/20",
         label: "Late Return",
       },
     };
@@ -136,9 +133,7 @@ export default function OrdersPage() {
     const config = statusConfig[status] || statusConfig.pending;
 
     return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-semibold ${config.color}`}
-      >
+      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${config.colorClass}`}>
         {config.label}
       </span>
     );
@@ -146,154 +141,167 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background flex items-center justify-center text-primary">
+        <Loader2 className="h-10 w-10 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Orders & Lifecycle Management
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Manage quotations and rental orders
-          </p>
-        </div>
+    <div className="min-h-screen bg-background text-foreground font-sans transition-colors duration-300 relative">
+      
+      {/* ================= BACKGROUND EFFECTS ================= */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[10%] left-[5%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[10%] right-[5%] w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-4">
-        <Filter className="h-5 w-5 text-gray-400" />
-        <div className="flex gap-2">
-          {(["all", "draft", "confirmed"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === f
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              {f === "all"
-                ? "All Orders"
-                : f === "draft"
-                ? "Quotations"
-                : "Confirmed Orders"}
-            </button>
-          ))}
+      <div className="relative z-10 max-w-[1600px] mx-auto p-6 md:p-8 space-y-8">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Orders & Lifecycle</h1>
+            <p className="mt-1 text-foreground/50 text-sm">
+              Track quotations, bookings, and return statuses in real-time.
+            </p>
+          </div>
+          
+          {/* Filters */}
+          <div className="flex items-center gap-3 bg-card p-1 rounded-xl border border-border shadow-sm">
+            <div className="pl-3 pr-1">
+               <Filter className="h-4 w-4 text-foreground/40" />
+            </div>
+            {(["all", "draft", "confirmed"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  filter === f
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-foreground/60 hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                {f === "all"
+                  ? "All"
+                  : f === "draft"
+                  ? "Quotations"
+                  : "Confirmed"}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Orders Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Order ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Pickup Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Dates
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredOrders.length === 0 ? (
+        {/* Orders Table Card */}
+        <div className="bg-card border border-border rounded-3xl shadow-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-accent/30">
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No orders found</p>
-                  </td>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Order ID</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Customer</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Pickup Status</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Amount</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Schedule</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-bold text-foreground/50 uppercase tracking-widest">Actions</th>
                 </tr>
-              ) : (
-                filteredOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        #{order.id.slice(0, 8)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {order.customer?.name || "Unknown"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {order.customer?.email || ""}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(order.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getPickupStatusBadge(order.pickup_status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                        ₹{Number(order.total_amount || 0).toFixed(2)}
-                      </div>
-                      {order.security_deposit > 0 && (
-                        <div className="text-xs text-gray-500">
-                          Deposit: ₹{Number(order.security_deposit).toFixed(2)}
+              </thead>
+              <tbody className="divide-y divide-border bg-card">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 bg-accent/50 rounded-full flex items-center justify-center mb-4">
+                           <ShoppingCart className="h-8 w-8 text-foreground/30" />
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-xs text-gray-500">
-                        {order.pickup_date && (
-                          <div className="flex items-center gap-1 mb-1">
-                            <Package className="h-3 w-3" />
-                            Pickup: {new Date(order.pickup_date).toLocaleDateString()}
-                          </div>
-                        )}
-                        {order.return_date && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Return: {new Date(order.return_date).toLocaleDateString()}
-                          </div>
-                        )}
+                        <p className="text-foreground/60 font-medium">No orders found</p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <OrderActions
-                        order={order}
-                        onUpdate={fetchOrders}
-                      />
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-accent/20 transition-colors group"
+                    >
+                      {/* Order ID */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-foreground">
+                          #{order.id.slice(0, 8)}
+                        </div>
+                        <div className="text-[10px] text-foreground/40 mt-0.5 font-mono">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+
+                      {/* Customer */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-foreground">{order.customer?.name || "Unknown"}</span>
+                          <span className="text-xs text-foreground/50">{order.customer?.email}</span>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(order.status)}
+                      </td>
+
+                      {/* Pickup Status */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getPickupStatusBadge(order.pickup_status)}
+                      </td>
+
+                      {/* Amount */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-foreground flex items-center">
+                          ₹{Number(order.total_amount || 0).toFixed(2)}
+                        </div>
+                        {order.security_deposit > 0 && (
+                          <div className="text-[10px] text-foreground/40 mt-0.5">
+                            + ₹{Number(order.security_deposit).toFixed(0)} Dep.
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Dates */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1.5">
+                          {order.pickup_date && (
+                            <div className="flex items-center gap-2 text-xs text-foreground/60">
+                              <div className="w-4 h-4 bg-accent rounded flex items-center justify-center">
+                                <Package className="h-2.5 w-2.5 text-foreground/50" />
+                              </div>
+                              {new Date(order.pickup_date).toLocaleDateString()}
+                            </div>
+                          )}
+                          {order.return_date && (
+                            <div className="flex items-center gap-2 text-xs text-foreground/60">
+                              <div className="w-4 h-4 bg-accent rounded flex items-center justify-center">
+                                <Clock className="h-2.5 w-2.5 text-foreground/50" />
+                              </div>
+                              {new Date(order.return_date).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <OrderActions
+                          order={order}
+                          onUpdate={fetchOrders}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

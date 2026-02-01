@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Loader2,
 } from "lucide-react";
+import {VendorNavbar} from "@/components/VendorNavbar";
+
 
 interface DashboardStats {
   totalRevenue: number;
@@ -116,6 +118,7 @@ export default function VendorDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <VendorNavbar />
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Global Insights

@@ -15,6 +15,7 @@ import {
   X,
   Building2,
   ChevronRight,
+  RefreshCcw,
 } from "lucide-react";
 import LogoutButton from "@/components/auth/LogoutButton";
 import toast from "react-hot-toast";
@@ -84,48 +85,55 @@ export default function VendorLayout({
 
   return (
     <ProtectedRoute allowedRoles={["VENDOR"]}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           <div className="flex flex-col h-full">
             {/* Logo/Header */}
-            <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between h-20 px-6 border-b border-border">
               <div className="flex items-center gap-2">
-                <Building2 className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg">Vendor Portal</span>
+                <Link href="/" className="group flex items-center gap-3 active:scale-95 transition-transform">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:rotate-12 transition-transform duration-300">
+            <RefreshCcw className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl font-bold tracking-tight text-foreground">RentFlow</span>
+            <span className="text-[10px] text-muted-foreground block -mt-1 tracking-widest uppercase font-black">ERP</span>
+          </div>
+        </Link>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="lg:hidden text-gray-500 hover:text-gray-700"
+                className="lg:hidden text-foreground hover:text-primary"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* User Info */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Building2 className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                    {profile?.name || "Vendor"}
+                  <p className="text-sm font-semibold truncate">
+                    {profile?.full_name || "Vendor"}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {profile?.company_name || "Company"}
+                  <p className="text-xs text-foreground/60 truncate">
+                    {profile?.email}
                   </p>
                 </div>
               </div>
@@ -143,7 +151,7 @@ export default function VendorLayout({
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive
                         ? "bg-primary text-primary-foreground"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        : "text-foreground/70 hover:bg-accent"
                     }`}
                   >
                     <item.icon className="h-5 w-5" />
@@ -157,7 +165,7 @@ export default function VendorLayout({
             </nav>
 
             {/* Logout */}
-            <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="px-4 py-4 border-t border-border">
               <LogoutButton />
             </div>
           </div>
@@ -165,21 +173,18 @@ export default function VendorLayout({
 
         {/* Main content */}
         <div className="lg:pl-64">
-          {/* Top bar */}
-          <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+          {/* Top bar for mobile menu toggle */}
+          <header className="sticky top-0 z-30 bg-card/50 backdrop-blur-sm border-b border-border lg:hidden">
+            <div className="flex items-center justify-between h-16 px-4">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-500 hover:text-gray-700"
+                className="text-foreground hover:text-primary"
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <div className="flex-1" />
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {profile?.company_name}
-                </span>
-              </div>
+              <span className="text-sm font-semibold text-foreground/70">
+                {profile?.full_name}
+              </span>
             </div>
           </header>
 

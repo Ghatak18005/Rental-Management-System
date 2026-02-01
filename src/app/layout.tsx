@@ -3,13 +3,12 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
-import { CartProvider } from "@/context/CartContext"; // <--- 1. ADD THIS IMPORT
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "RentFlow - Rental Management System",
-  description: "Rent products online, manage inventory, and track returns.",
+  description: "Manage rentals, inventory, and automated invoicing.",
 };
 
 export default function RootLayout({
@@ -26,11 +25,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {/* 2. WRAP CONTENT IN CartProvider */}
-          <CartProvider>
-            <ToastProvider />
-            {children}
-          </CartProvider>
+          {/* Ensure ToastProvider is inside ThemeProvider for themed toasts */}
+          <ToastProvider /> 
+          {children}
         </ThemeProvider>
       </body>
     </html>

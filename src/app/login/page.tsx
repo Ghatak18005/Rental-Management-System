@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,9 +22,9 @@ export default function LoginPage() {
       if (user) {
         // Redirect based on role
         if (user.email === 'admin@rentflow.com') { // Replace with your admin check logic
-            router.push('/admin/dashboard');
+          router.push('/admin/dashboard');
         } else {
-            router.push('/dashboard');
+          router.push('/dashboard');
         }
       }
     };
@@ -62,10 +62,10 @@ export default function LoginPage() {
       });
 
       if (error) throw error;
-      
+
       toast.success('Logged in successfully!');
       router.push('/dashboard'); // Default redirect
-      
+
     } catch (error: any) {
       toast.error(error.message || 'Failed to login');
     } finally {
@@ -77,7 +77,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#121212] p-4">
       <div className="w-full max-w-md bg-[#1E1E1E] rounded-xl shadow-2xl p-8 border border-gray-800">
-        
+
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">RentFlow</h1>
           <p className="text-gray-400">Sign in to your account</p>
@@ -87,8 +87,8 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
             <div className="relative">
-              <input 
-                type="email" 
+              <input
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-[#121212] border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
@@ -102,8 +102,8 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
             <div className="relative">
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-[#121212] border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
@@ -114,8 +114,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -129,7 +129,7 @@ export default function LoginPage() {
           <div className="h-px bg-gray-700 flex-1"></div>
         </div>
 
-        <button 
+        <button
           onClick={handleGoogleLogin}
           disabled={googleLoading}
           className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2 disabled:opacity-75"

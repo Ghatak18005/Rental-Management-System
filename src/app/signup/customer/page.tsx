@@ -10,7 +10,8 @@ import {
   User, 
   Send, 
   CheckCircle2, 
-  ShieldCheck 
+  ShieldCheck,
+  Store // Added Store icon for the vendor link
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -75,7 +76,6 @@ export default function CustomerSignup() {
           password: formData.password,
           name: formData.name,
           role: "CUSTOMER",
-          // Passing explicitly as null to satisfy backend schema if required
           company_name: null,
           gstin: null,
         }),
@@ -255,12 +255,27 @@ export default function CustomerSignup() {
             </div>
           )}
 
-          <p className="text-center text-sm text-muted-foreground mt-8 relative z-10">
-            Already a member?{" "}
-            <Link href="/login" className="text-primary hover:underline font-bold transition-colors">
-              Sign in
-            </Link>
-          </p>
+          {/* Footer Area with Links */}
+          <div className="mt-8 space-y-3 relative z-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              Already a member?{" "}
+              <Link href="/login" className="text-primary hover:underline font-bold transition-colors">
+                Sign in
+              </Link>
+            </p>
+
+            {/* Separator / Divider */}
+            <div className="w-12 h-px bg-border mx-auto"></div>
+
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+              <Store className="h-3 w-3" />
+              Are you a seller?{" "}
+              <Link href="/signup/vendor" className="text-foreground hover:text-primary underline decoration-dotted underline-offset-4 font-semibold transition-colors">
+                Register as a Vendor
+              </Link>
+            </p>
+          </div>
+
         </div>
       </main>
     </div>

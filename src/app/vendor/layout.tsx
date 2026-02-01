@@ -15,6 +15,7 @@ import {
   X,
   Building2,
   ChevronRight,
+  RefreshCcw,
 } from "lucide-react";
 import LogoutButton from "@/components/auth/LogoutButton";
 import toast from "react-hot-toast";
@@ -103,7 +104,15 @@ export default function VendorLayout({
             {/* Logo/Header */}
             <div className="flex items-center justify-between h-20 px-6 border-b border-border">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg">RMS</span>
+                <Link href="/" className="group flex items-center gap-3 active:scale-95 transition-transform">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:rotate-12 transition-transform duration-300">
+            <RefreshCcw className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl font-bold tracking-tight text-foreground">RentFlow</span>
+            <span className="text-[10px] text-muted-foreground block -mt-1 tracking-widest uppercase font-black">ERP</span>
+          </div>
+        </Link>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}

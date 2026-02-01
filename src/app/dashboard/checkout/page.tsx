@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { CreditCard, CheckCircle, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
@@ -21,7 +21,7 @@ interface Order {
   items: OrderItem[];
 }
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
@@ -89,7 +89,7 @@ export default function CheckoutPage() {
       if (updateError) throw updateError;
 
       toast.success('Payment successful!');
-      
+
       // Redirect to invoice page
       router.push(`/dashboard/invoice/${order.id}`);
     } catch (error: any) {
@@ -128,7 +128,7 @@ export default function CheckoutPage() {
 
   const rentalDays = Math.ceil(
     (new Date(order.return_date).getTime() - new Date(order.pickup_date).getTime()) /
-      (1000 * 60 * 60 * 24)
+    (1000 * 60 * 60 * 24)
   );
 
   return (
@@ -184,7 +184,7 @@ export default function CheckoutPage() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Payment Method</h2>
               <div className="space-y-3">
                 {['card', 'upi', 'bank'].map((method) => (
-                  <label key={method} className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" style={{borderColor: paymentMethod === method ? '#7c3aed' : undefined, backgroundColor: paymentMethod === method ? '#f5f3ff' : undefined}}>
+                  <label key={method} className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" style={{ borderColor: paymentMethod === method ? '#7c3aed' : undefined, backgroundColor: paymentMethod === method ? '#f5f3ff' : undefined }}>
                     <input
                       type="radio"
                       name="payment"
@@ -260,5 +260,13 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-purple-600" /></div>}>
+      <CheckoutContent />
+    </Suspense>
   );
 }

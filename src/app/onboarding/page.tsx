@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Building2, FileText, Phone, CheckCircle2 } from "lucide-react";
@@ -17,20 +17,20 @@ interface OnboardingFormData {
   mobile: string;
 }
 
-export default function Onboarding() {
+function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Normalize role and validate
   const roleParam = searchParams.get("role")?.toUpperCase() || "CUSTOMER";
   const role = roleParam as UserRole;
-  
+
   const validRoles: UserRole[] = ['CUSTOMER', 'VENDOR', 'ADMIN'];
   const isValidRole = validRoles.includes(role);
 
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
-  
+
   // 3. Use the Supabase User type instead of any
   const [user, setUser] = useState<User | null>(null);
 
@@ -55,12 +55,12 @@ export default function Onboarding() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
-    
+
     if (!isValidRole) {
       toast.error("Invalid role specified");
       return;
     }
-    
+
     setLoading(true);
 
     if (role === "VENDOR" && (!formData.company_name || !formData.gstin)) {
@@ -86,13 +86,13 @@ export default function Onboarding() {
       toast.error("Error creating profile: " + error.message);
     } else {
       toast.success("Profile created successfully! Redirecting...");
-      
+
       const routes: Record<UserRole, string> = {
         VENDOR: "/vendor/dashboard",
         ADMIN: "/admin/dashboard",
         CUSTOMER: "/dashboard"
       };
-      
+
       router.push(routes[role]);
     }
     setLoading(false);
@@ -101,7 +101,7 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
       <div className="max-w-md w-full bg-card border border-border rounded-xl shadow-xl p-8 transition-colors duration-300">
-        
+
         <h2 className="text-2xl font-bold text-center mb-2 text-foreground">Complete Your Profile</h2>
         <p className="text-center text-foreground/60 mb-6">
           You are signing up as a <span className="font-bold text-primary">{role}</span>
@@ -167,5 +167,13 @@ export default function Onboarding() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function Onboarding() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <OnboardingContent />
+    </Suspense>
   );
 }
